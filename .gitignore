@@ -1,0 +1,13 @@
+*pyc
+*~
+#*
+*.sh
+activations/
+adjacency/
+losses/
+checkpoint/
+cpp/
+data/
+densities/
+outputs/
+deepfool_dataset/
