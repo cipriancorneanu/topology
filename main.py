@@ -1,5 +1,4 @@
 from __future__ import print_function
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -102,12 +101,9 @@ if args.resume:
 optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
 lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, mode='max', verbose=True)
 
-''' Create dataset for dumping activations '''
-file = h5py.File('./activations/'+oname+'/activations_trial_' + str(args.trial) + '.hdf5', 'a')
-
 activs, targets, loss_te, acc_te = test(net, testloader, device, criterion, n_test_batches=10)
-save_model(net, acc_te, oname, args.trial, epoch=0)
-save_activations(file, 0, activs, targets)
+save_model(model = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
+save_activations(activs, targets, path='./activations/'+oname, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_0')
 
 stats = []
 for epoch in range(start_epoch, start_epoch+args.epochs+1):
@@ -121,15 +117,12 @@ for epoch in range(start_epoch, start_epoch+args.epochs+1):
     lr_scheduler.step(acc_te)
 
     if epoch<10:
-        save_model(net, acc_te, oname, args.trial, epoch)
-        save_activations(file, epoch, activs, targets)  
+        save_model(model = {'net':net.state_dict(), 'acc': acc_te, 'epoch': epoch}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_'+str(epoch)+'.t7')
+        save_activations(activs, targets, path='./activations/'+oname, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_'+str(epoch))  
     elif epoch%args.save_every==0:
-        save_model(net, acc_te, oname, args.trial, epoch)
-        save_activations(file, epoch, activs, targets)
+        save_model(model = {'net':net.state_dict(), 'acc': acc_te, 'epoch': epoch}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_'+str(epoch)+'.t7')
+        save_activations(activs, targets, path='./activations/'+oname, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_'+str(epoch))
 
+        
 '''Save losses'''
-with open('./losses/' + oname + '/' + 'stats_trial_' +str(args.trial) +'.pkl', 'wb') as f:
-    pkl.dump(stats, f, protocol=2)
-
-file.close()
-
+save_losses(stats, path='./losses/'+oname, fname='stats_trial_' +str(args.trial) +'.pkl')
