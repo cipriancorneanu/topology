@@ -372,22 +372,50 @@ def test(net, testloader, device, criterion, n_test_batches):
     
     return (activs, np.concatenate(target_acc), np.asarray(loss_acc), accuracy)
 
+''' Define a function that saves model and activations at a set of epochs '''
+def save():
+    soemthing = 0
 
-def save_model(net, acc, save_name, trial, epoch):
+def save_model(model, path, fname):
     print('Saving checkpoint...')
-    state = {
-        'net': net.state_dict(),
-        'acc': acc,
-        'epoch': epoch,
-    }
-    if not os.path.isdir('checkpoint'):
-        os.mkdir('checkpoint')
-    torch.save(state, './checkpoint/'+save_name+'/ckpt_trial_'+str(trial)+'_epoch_'+str(epoch)+'.t7')
+    
+    if not os.path.isdir(path):
+        os.mkdir(path)
+        
+    torch.save(model, path+fname)
 
         
-def save_activations(file, epoch, activs, targets):
+def save_activations(activs, targets, path, fname, internal_path):
     print('Saving activations...')
 
+    ''' Create file '''
+    if not os.path.exists(path):
+        os.makedirs(path)
+    file = h5py.File(path+fname, 'a')
+    
+    ''' Save activations; if exists replace '''
     for i, x in enumerate(activs):
-        file.create_dataset("epoch_"+str(epoch)+"/activations/layer_"+str(i), data=x, dtype=np.float16)
-    file.create_dataset("epoch_"+str(epoch)+"/targets", data=targets)
+        dts = internal_path+"/activations/layer_"+str(i)
+        if dts in file:
+            data = file[dts]
+            data[...] = x
+        else:
+            file.create_dataset(internal_path+"/activations/layer_"+str(i), data=x, dtype=np.float16)
+
+    ''' Save targets; if exists replace '''
+    dts = internal_path+"/targets"
+    if dts in file:
+        data =  file[dts]
+        data[...] = x
+    else:
+        file.create_dataset(internal_path+"/targets", data=targets)
+
+
+def save_losses(losses, path, fname):
+    if not os.path.exists(path):
+        os.makedirs(path)
+    
+    with open(path+oname, 'wb') as f:
+        pkl.dump(losses, f, protocol=2)
+    file.close()
+
