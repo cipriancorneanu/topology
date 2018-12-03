@@ -2,7 +2,6 @@
 Utilities  for saving data to disk
 '''
 
-
 import os
 import numpy as np
 import torch
@@ -10,11 +9,7 @@ import pickle as pkl
 import h5py 
 
 
-''' Define a function that saves model and activations at a set of epochs '''
-def save():
-    soemthing = 0
 
-    
 def save_checkpoint(checkpoint, path, fname):
     """ Save checkpoint to path with fname """
 
@@ -26,21 +21,20 @@ def save_checkpoint(checkpoint, path, fname):
     torch.save(checkpoint, path+fname)
 
         
-def save_activations(activs, targets, path, fname, internal_path):
+def save_activations(activs, path, fname, internal_path):
     """
-    Save activs and targets to path/fname in h5py dataset.
-    Activs saved at <internal_path>/activations/layer_<layer>/.
-    Targets saved at <internal_path>/targets/.
+    Save features to path/fname in h5py dataset.
+    Features saved at <internal_path>/activations/layer_<layer>/.
     """
     
-    print('Saving activations...')
+    print('Saving features...')
 
     ''' Create file '''
     if not os.path.exists(path):
         os.makedirs(path)
     file = h5py.File(path+fname, 'a')
     
-    ''' Save activations; if exists replace '''
+    ''' Save features; if exists replace '''
     for i, x in enumerate(activs):
         dts = internal_path+"/activations/layer_"+str(i)
         if dts in file:
@@ -48,14 +42,6 @@ def save_activations(activs, targets, path, fname, internal_path):
             data[...] = x
         else:
             file.create_dataset(internal_path+"/activations/layer_"+str(i), data=x, dtype=np.float16)
-
-    ''' Save targets; if exists replace '''
-    dts = internal_path+"/targets"
-    if dts in file:
-        data =  file[dts]
-        data[...] = x
-    else:
-        file.create_dataset(internal_path+"/targets", data=targets)
 
     file.close()
 
