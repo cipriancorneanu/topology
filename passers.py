@@ -1,6 +1,76 @@
 from utils import progress_bar
+import torch
+import numpy as np
+
+''' Do subsampling and label shuffling in the data loader'''
+'''if n_batches and batch_idx > n_batches: break'''
+'''
+if shuffle_labels and list(targets.size())[0]==128:
+targets = targets[PERM]
+'''
+
+            
+class Passer():
+    def __init__(self, net, criterion, device):
+        self.network = net
+        self.criterion = criterion
+        self.device = device
+
+    def _pass(self, loader, optimizer=None, forward_features=None):
+        ''' Main data passing routine'''
+        losses, features, total, correct = [], [], 0, 0
+        for batch_idx, (inputs, targets) in enumerate(loader):
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            if optimizer: optimizer.zero_grad()
+            outputs = self.network(inputs)
+
+            if forward_features: features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_features(inputs)])
+
+            loss = self.criterion(outputs, targets)
+            losses.append(loss.item())
+            
+            if optimizer:
+                loss.backward()
+                optimizer.step()
+
+            ''' Gather predictions for evaluation '''
+            _, predicted = outputs.max(1)
+            total += targets.size(0)
+            correct += predicted.eq(targets).sum().item()
+
+        accuracy = 100.*correct/total
+        progress_bar(batch_idx, len(loader), 'Mean Loss: %.3f | Last Loss: %.3f | Acc: %.3f%% (%d/%d)\n'
+                     % (np.mean(losses), losses[-1], accuracy, correct, total))
+
+        if forward_features:
+            return (
+                [np.concatenate(list(zip(*features))[i]) for i in range(len(features[0]))],
+                np.asarray(losses),
+                accuracy
+            )
+        else:
+            return (
+                np.asarray(losses),
+                accuracy
+            )
+
+    def train(self, loader, optimizer):
+        ''' Pass data in train mode '''
+        self.network.train()
+        return self._pass(loader, optimizer)
+        
+    def test(self, loader, forward_features=None):
+        ''' Pass data to network in test mode '''
+        self.network.eval()
+        with torch.no_grad():
+            return self._pass(loader, optimizer=None, forward_features=forward_features)
+                  
+        
+    
 
 
+
+'''
 PERM = [30,  88,  93,  10,  53,  28,  22,   9, 116,  20,  51, 106,  14,
                 76, 108, 119,  67,  82,  27,  39, 110,  68,  91,  74,  86, 117,
                 56,  99,  66,  49,  11,  61,  65,   7,  58,  31,  35,  47,  23,
@@ -11,7 +81,6 @@ PERM = [30,  88,  93,  10,  53,  28,  22,   9, 116,  20,  51, 106,  14,
                 75,  52,  90, 103,  84,   1,  80,  21, 111,   6,   3,   4,  79,
                 50, 102, 112, 104,  45,  18,  62,  33, 127,  16,  38,  63,  85,
                124,  98,  36, 107,  73,  69,  34,  15, 114, 126,  13]
-
 
 def train(net, trainloader, device, optimizer, criterion, do_optimization, shuffle_labels, n_batches):
     net.train()
@@ -43,7 +112,6 @@ def train(net, trainloader, device, optimizer, criterion, do_optimization, shuff
 
     accuracy = 100.*correct/total
     
-    '''print('Train accuracy {}'.format(100.*correct/total))'''
     progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)\n'
                  % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
@@ -86,7 +154,6 @@ def train_subset(net, trainloader, device, optimizer, criterion, do_optimization
 
     accuracy = 100.*correct/total
     
-    '''print('Train accuracy {}'.format(100.*correct/total))'''
     progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)\n'
                  % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
 
@@ -122,3 +189,4 @@ def test(net, testloader, device, criterion, n_test_batches):
     activs = [np.concatenate(list(zip(*activation_acc))[i]) for i in range(len(activation_acc[0]))]
     
     return (activs, np.concatenate(target_acc), np.asarray(loss_acc), accuracy)
+'''
