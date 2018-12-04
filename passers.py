@@ -9,22 +9,30 @@ if shuffle_labels and list(targets.size())[0]==128:
 targets = targets[PERM]
 '''
 
+def get_accuracy(predictions, targets):
+    ''' Compute accuracy of predictions to targets. max(predictions) is best'''
+    _, predicted = predictions.max(1)
+    total = targets.size(0)
+    correct = predicted.eq(targets).sum().item()
+
+    return 100.*correct/total
+
             
 class Passer():
-    def __init__(self, net, criterion, device):
+    def __init__(self, net, loader, criterion, device):
         self.network = net
         self.criterion = criterion
         self.device = device
+        self.loader = loader
 
-    def _pass(self, loader, optimizer=None, forward_features=None):
-        ''' Main data passing routine'''
+    def _pass(self, optimizer=None):
+        ''' Main data passing routing '''
         losses, features, total, correct = [], [], 0, 0
-        for batch_idx, (inputs, targets) in enumerate(loader):
+        accuracies = []
+        for batch_idx, (inputs, targets) in enumerate(self.loader):
             inputs, targets = inputs.to(self.device), targets.to(self.device)
             if optimizer: optimizer.zero_grad()
             outputs = self.network(inputs)
-
-            if forward_features: features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_features(inputs)])
 
             loss = self.criterion(outputs, targets)
             losses.append(loss.item())
@@ -33,41 +41,43 @@ class Passer():
                 loss.backward()
                 optimizer.step()
 
-            ''' Gather predictions for evaluation '''
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
+            accuracies.append(get_accuracy(outputs, targets))
+            
+            progress_bar(batch_idx, len(self.loader), 'Mean Loss: %.3f | Last Loss: %.3f | Acc: %.3f%%'
+                     % (np.mean(losses), losses[-1], np.mean(accuracies)))
 
-        accuracy = 100.*correct/total
-        progress_bar(batch_idx, len(loader), 'Mean Loss: %.3f | Last Loss: %.3f | Acc: %.3f%% (%d/%d)\n'
-                     % (np.mean(losses), losses[-1], accuracy, correct, total))
-
-        if forward_features:
-            return (
-                [np.concatenate(list(zip(*features))[i]) for i in range(len(features[0]))],
-                np.asarray(losses),
-                accuracy
-            )
-        else:
-            return (
-                np.asarray(losses),
-                accuracy
-            )
-
-    def train(self, loader, optimizer):
-        ''' Pass data in train mode '''
-        self.network.train()
-        return self._pass(loader, optimizer)
-        
-    def test(self, loader, forward_features=None):
-        ''' Pass data to network in test mode '''
-        self.network.eval()
-        with torch.no_grad():
-            return self._pass(loader, optimizer=None, forward_features=forward_features)
-                  
-        
+        return np.asarray(losses), np.mean(accuracies)
     
+    
+    def run(self, optimizer=None):
+        if optimizer:
+            self.network.train()
+            return self._pass(optimizer)
+        else:
+            self.network.eval()
+            with torch.no_grad():
+                return self._pass()
 
+            
+    def get_function(self):
+        ''' Collect function (features) from the self.network.modeule.forward_features() routine '''
+        features = []
+        for batch_idx, (inputs, targets) in enumerate(self.loader):
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            outputs = self.network(inputs)
+            features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_features(inputs)])
+
+        return [np.concatenate(list(zip(*features))[i]) for i in range(len(features[0]))],
+
+    def get_structure(self):
+        ''' Collect structure (weights) from the self.network.module.forward_weights() routine '''
+        weights = []
+        for batch_idx, (inputs, targets) in enumerate(self.loader):
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            outputs = self.network(inputs)
+            weights.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_weights(inputs)])
+
+        return [np.concatenate(list(zip(*weights))[i]) for i in range(len(weights[0]))],
 
 
 '''
