@@ -67,7 +67,9 @@ class Passer():
             outputs = self.network(inputs)
             features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_features(inputs)])
 
-        return [np.concatenate(list(zip(*features))[i]) for i in range(len(features[0]))],
+            progress_bar(batch_idx, len(self.loader))
+
+        return [np.concatenate(list(zip(*features))[i]) for i in range(len(features[0]))]
 
     def get_structure(self):
         ''' Collect structure (weights) from the self.network.module.forward_weights() routine '''
@@ -77,7 +79,9 @@ class Passer():
             outputs = self.network(inputs)
             weights.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_weights(inputs)])
 
-        return [np.concatenate(list(zip(*weights))[i]) for i in range(len(weights[0]))],
+            progress_bar(batch_idx, len(self.loader))
+            
+        return [np.concatenate(list(zip(*weights))[i]) for i in range(len(weights[0]))]
 
 
 '''
