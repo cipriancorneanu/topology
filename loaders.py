@@ -38,12 +38,15 @@ TRANSFORMS_TE_IMAGENET = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
 ])
 
-TRANSFORMS_MNIST_ADV = transforms.Compose([transforms.Grayscale(1),
-                                transforms.ToTensor(),
-                                transforms.Normalize((0.1307,), (0.3081,))])
+TRANSFORMS_MNIST_ADV = transforms.Compose([
+    transforms.Grayscale(1),
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))])
 
-TRANSFORMS_MNIST = transforms.Compose([transforms.ToTensor(),
-                                      transforms.Normalize((0.1307,), (0.3081,))])
+TRANSFORMS_MNIST = transforms.Compose([
+    transforms.Resize(32),
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))])
 
 
 def loader(data, subset=[]):
@@ -55,7 +58,7 @@ def loader(data, subset=[]):
     elif data  == 'cifar10_train':
         return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10, batch_size=128, shuffle=False, num_workers=2, subset=subset)
     elif data == 'cifar10_test':
-        cifar10_te = dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=100, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=100, shuffle=False, num_workers=2, subset=subset)
     elif data == 'mnist_adversarial':
         return dataloader('/data/data1/datasets/lenet_mnist_adversarial/', train=False,
                           transform=TRANSFORMS_TE_CIFAR10, batch_size=100, shuffle=False, num_workers=2, subset=subset)
@@ -65,14 +68,13 @@ def loader(data, subset=[]):
     elif data == 'imagenet_train':
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/train/',
                                  train=True, transform=TRANSFORMS_TR_IMAGENET, batch_size=128, shuffle=True, num_workers=2, subset=subset)
-    elif loader == 'imagenet_test':
+    elif data == 'imagenet_test':
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/val/images/',
                                  train=False, transform=TRANSFORMS_TE_IMAGENET, batch_size=100, shuffle=False, num_workers=2, subset=subset)
 
 
 def dataloader(data, path, train, transform, batch_size, shuffle, num_workers, subset=[]):
     ''' Return loader for torchvision data '''
-    print('===> Preparing data...')
     if data == 'mnist':
         dataset = torchvision.datasets.MNIST(path, train=train, download=True, transform=transform)
     elif data == 'cifar10':
