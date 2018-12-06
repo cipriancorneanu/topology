@@ -33,10 +33,12 @@ def save_activations(activs, path, fname, internal_path):
     if not os.path.exists(path):
         os.makedirs(path)
     file = h5py.File(path+fname, 'a')
+
     
     ''' Save features; if exists replace '''
     for i, x in enumerate(activs):
         dts = internal_path+"/activations/layer_"+str(i)
+        
         if dts in file:
             data = file[dts]
             data[...] = x
