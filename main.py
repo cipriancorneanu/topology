@@ -8,7 +8,7 @@ import torch.backends.cudnn as cudnn
 import torchvision
 import os
 import argparse
-from models.lenet import LeNet
+from models.utils import build_model
 from utils import progress_bar
 import numpy as np
 import h5py
@@ -17,6 +17,7 @@ import pickle as pkl
 from passers import Passer
 from savers import save_activations, save_checkpoint, save_losses
 from loaders import *
+
 
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--net')
@@ -40,46 +41,24 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 1  # start from epoch 1 or last checkpoint epoch
 
-''' Prepare data '''
-if args.dataset=='cifar':
-    trainloader, testloader = cifar10()
+''' Prepare loaders '''
+trainloader = loader(args.dataset+'_train')
+testloader = loader(args.dataset+'_test')
+functloader = loader(args.dataset+'_test', subset=list(range(0, 1000)))
+
+''' Prepare criterion [?] Why different on MNIST?'''
+if args.dataset in ['cifar10', 'imagenet']:
     criterion = nn.CrossEntropyLoss()
-elif args.dataset=='imagenet':
-    trainloader, testloader = tinyimagenet(args.input_size)
-    criterion = nn.CrossEntropyLoss()
-elif args.dataset=='mnist':
-    trainloader, testloader = mnist()
-    criterion = F.nll_loss
-elif args.dataset=='mnist_adversarial':
-    testloader = mnist_adversarial()
+elif args.dataset in ['mnist', 'mnist_adverarial']:
     criterion = F.nll_loss
 
+    
 ''' Meta-name to be used as prefix on all savings'''
 oname = args.net + '_' + args.dataset
 
 # Build models
 print('==> Building model..')
-if args.net=='lenet' and args.dataset in ['mnist', 'cifar', 'mnist_adversarial']:
-    net = LeNet(num_classes=10)
-if args.net=='lenetext' and args.dataset=='mnist':
-    net = LeNetExt(n_channels=1, num_classes=10)
-if args.net=='lenetext' and args.dataset=='cifar':
-    net = LeNetExt(n_channels=3, num_classes=10)
-elif args.net=='vgg' and args.dataset in ['cifar', 'mnist']:
-    net = VGG('VGG16', num_classes=10)
-elif args.net=='vgg' and args.dataset=='imagenet':
-    net = VGG('VGG16', num_classes=200)
-elif args.net=='resnet' and args.dataset in ['cifar', 'mnist']:
-    net = ResNet18(num_classes=10)
-elif args.net=='resnet' and args.dataset=='imagenet':
-    net = ResNet18(num_classes=200)
-elif args.net=='densenet' and args.dataset=='imagenet':
-    net = DenseNet()
-elif args.net=='alexnet' and args.dataset=='cifar':
-    net = AlexNet(num_classes=10)
-elif args.net=='alexnet' and args.dataset=='imagenet':
-    net = AlexNet(num_classes=200)
-    
+net = build_model(args.net, args.dataset)
 net = net.to(device)
     
 if device == 'cuda':
@@ -113,28 +92,33 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5
 lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, mode='max', verbose=True)
 
 ''' Define passer'''
-passer = Passer(net, criterion, device)
+passer_train = Passer(net, trainloader, criterion, device)
+passer_test = Passer(net, testloader, criterion, device)
+passer_functional = Passer(net, functloader, criterion, device)
+
 
 ''' Make intial pass before any training '''
-activs, loss_te, acc_te = passer.test(testloader, forward_features=True)
+'''activs, loss_te, acc_te = passer_test.run()
 save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
 save_activations(activs, path='./activations/'+oname, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_0')
-
+'''
 
 losses = []
-for epoch in range(start_epoch, start_epoch+args.epochs+1):
+for epoch in range(start_epoch, start_epoch+args.epochs):
     print('Epoch {}'.format(epoch))
-    loss_tr, acc_tr = passer.train(trainloader, optimizer)
+    loss_tr, acc_tr = passer_train.run(optimizer)
     '''loss_tr, acc_tr = train(net, trainloader, device, optimizer, criterion, do_optimization=False,  shuffle_labels=args.shuffle_labels, n_batches=args.n_train_batches)'''
-    activs, loss_te, acc_te = passer.test(testloader, forward_features=True)
-
+    loss_te, acc_te = passer_test.run()
+    activs = passer_functional.get_function()
+    
     losses.append({'loss_tr':loss_tr, 'loss_te': loss_te, 'acc_tr': acc_tr, 'acc_te':acc_te})
         
     lr_scheduler.step(acc_te)
 
     if epoch in SAVE_EPOCHS:
-        save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': epoch}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_'+str(epoch)+'.t7')
-        save_activations(activs, path='./activations/'+oname, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_'+str(epoch))
-        
+        save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': epoch},
+                        path='./checkpoint/'+oname+'/', fname='ckpt_trial_'+str(args.trial)+'_epoch_'+str(epoch)+'.t7')
+        save_activations(activs, path='./activations/'+oname+'/', fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_'+str(epoch))
+
 '''Save losses'''
-save_losses(losses, path='./losses/'+oname, fname='stats_trial_' +str(args.trial) +'.pkl')
+save_losses(losses, path='./losses/'+oname+'/', fname='stats_trial_' +str(args.trial) +'.pkl')
