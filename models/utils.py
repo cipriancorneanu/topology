@@ -6,7 +6,7 @@ from .densenet import *
 from .inception import *
 
 
-def build_model(name, dataset):
+def get_model(name, dataset):
     if name=='lenet' and dataset in ['mnist', 'cifar10', 'mnist_adversarial']:
         net = LeNet(num_classes=10)
     if name=='lenet' and dataset == 'imagenet':
@@ -37,3 +37,25 @@ def build_model(name, dataset):
         net = AlexNet(num_classes=200)
 
     return net
+
+
+def get_criterion(dataset):
+    ''' Prepare criterion '''
+    if dataset in ['cifar10', 'imagenet']:
+        criterion = nn.CrossEntropyLoss()
+    elif dataset in ['mnist', 'mnist_adverarial']:
+        criterion = F.nll_loss
+        
+    return criterion 
+
+
+def init_from_checkpoint(net):
+    ''' Initialize from checkpoint'''
+    print('==> Initializing  from fixed checkpoint..')
+    assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+    checkpoint = torch.load('./checkpoint/'+args.net + '_' +args.dataset + '/ckpt_trial_' + str(args.fixed_init) + '_epoch_50.t7')
+    net.load_state_dict(checkpoint['net'])
+    best_acc = checkpoint['acc']
+    start_epoch = checkpoint['epoch']
+
+    return net, best_accc, start_epoch

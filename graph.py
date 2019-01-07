@@ -40,9 +40,9 @@ def corrpdf(signals):
     return pdf
 
 def adjacency_correlation(signals):
-    ''' Faster version of adjcency matrix with correlation metric '''
+    ''' Faster version of adjacency matrix with correlation metric '''
     signals = np.reshape(signals, (signals.shape[0], -1))
-    return np.corrcoef(signals)
+    return np.nan_to_num(np.corrcoef(signals))
     
 def adjacency(signals, metric):
     '''

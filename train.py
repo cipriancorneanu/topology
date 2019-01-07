@@ -8,7 +8,7 @@ import torch.backends.cudnn as cudnn
 import torchvision
 import os
 import argparse
-from models.utils import build_model
+from models.utils import get_model, get_criterion
 from utils import progress_bar
 import numpy as np
 import h5py
@@ -52,7 +52,7 @@ criterion  = get_criterion(args.dataset)
     
 ''' Build models '''
 print('==> Building model..')
-net = build_model(args.net, args.dataset)
+net = get_model(args.net, args.dataset)
 net = net.to(device)
     
 if device == 'cuda':
@@ -74,9 +74,10 @@ passer_functional = Passer(net, functloader, criterion, device)
 
 
 ''' Make intial pass before any training '''
-activs, loss_te, acc_te = passer_test.run()
+loss_te, acc_te = passer_test.run()
+'''activs = passer_functional.run()'''
 save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
-save_activations(activs, path='./activations/'+oname, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_0')
+'''save_activations(activs, path='./activations/'+ONAME, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_0')'''
 
 
 losses = []
@@ -85,7 +86,7 @@ for epoch in range(start_epoch, start_epoch+args.epochs):
     loss_tr, acc_tr = passer_train.run(optimizer)
     '''loss_tr, acc_tr = train(net, trainloader, device, optimizer, criterion, do_optimization=False,  shuffle_labels=args.shuffle_labels, n_batches=args.n_train_batches)'''
     loss_te, acc_te = passer_test.run()
-    activs = passer_functional.get_function()
+    '''activs = passer_functional.get_function()'''
     
     losses.append({'loss_tr':loss_tr, 'loss_te': loss_te, 'acc_tr': acc_tr, 'acc_te':acc_te})
         
@@ -93,7 +94,7 @@ for epoch in range(start_epoch, start_epoch+args.epochs):
 
     if epoch in SAVE_EPOCHS:
         save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': epoch}, path='./checkpoint/'+ONAME+'/', fname='ckpt_trial_'+str(args.trial)+'_epoch_'+str(epoch)+'.t7')
-        save_activations(activs, path='./activations/'+ONAME+'/', fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_'+str(epoch))
+        '''save_activations(activs, path='./activations/'+ONAME+'/', fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_'+str(epoch))'''
 
 '''Save losses'''
 save_losses(losses, path='./losses/'+ONAME+'/', fname='stats_trial_' +str(args.trial) +'.pkl')
