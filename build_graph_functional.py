@@ -21,22 +21,23 @@ from graph import *
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--net')
 parser.add_argument('--dataset')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
 parser.add_argument('--trial', default=0, type=int)
 parser.add_argument('--epochs', nargs='+', type=int)
-parser.add_argument('--n_train_batches', default=0, type=int)
+parser.add_argument('--split', type=int)
 parser.add_argument('--input_size', default=32, type=int)
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
 ''' Meta-name to be used as prefix on all savings'''
-oname = args.net + '_' + args.dataset
-save_path = '/data/data1/datasets/cvpr2019/adjacency/'+oname+'/'
+oname = args.net + '_' + args.dataset + '/'
+SAVE_PATH = '/data/data1/datasets/cvpr2019/'
+SAVE_DIR = SAVE_PATH + 'adjacency/' + oname
+START_LAYER = 3 if args.net in ['vgg', 'resnet'] else 0 
 
 ''' If save directory doesn't exist create '''
-if not os.path.exists(save_path):
-    os.makedirs(save_path)    
+if not os.path.exists(SAVE_DIR):
+    os.makedirs(SAVE_DIR)    
 
 # Build models
 print('==> Building model..')
@@ -65,6 +66,21 @@ for epoch in args.epochs:
     passer = Passer(net, functloader, criterion, device)
     activs = passer.get_function()
 
-    for a in activs:
-        adj = adjacency_correlation(np.transpose(np.reshape(a, (a.shape[0], -1))))
-        np.savetxt(save_path+'badj_epc{}_trl{}.csv'.format(epoch, args.trial), adj, fmt='%.2f', delimiter=",")
+    ''' If high number of nodes compute adjacency on layers and chunks'''
+    if args.split:
+        adjs = build_adjacency_split(activs, sz_chunk=args.split)
+
+        for x in adjs:
+            path = SAVE_DIR + '/{}/layer{}_chunk{}/'.format(args.split, START_LAYER + x['layer'], x['chunk'])
+                                    
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            print('Saving ... trl{}, epc{}, layer{}, chunk{}, shape {}'.format(args.trial, epoch, START_LAYER+x['layer'], x['chunk'], x['data'].shape))
+            np.savetxt(path+'badj_epc{}_trl{}.csv'.format(epoch, args.trial), x['data'], fmt='%.2f', delimiter=",")
+
+    else:
+        ''' Build graph for entire network without splitting '''
+        activs = np.concatenate([np.transpose(a.reshape(a.shape[0], -1)) for a in activs], axis=0)
+        adj = build_adjacency(activs)
+        np.savetxt(SAVE_DIR + 'badj_epc{}_trl{}.csv'.format(epoch, args.trial), adj, fmt='%.2f', delimiter=",")
