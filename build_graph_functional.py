@@ -34,6 +34,7 @@ oname = args.net + '_' + args.dataset + '/'
 SAVE_PATH = '/data/data1/datasets/cvpr2019/'
 SAVE_DIR = SAVE_PATH + 'adjacency/' + oname
 START_LAYER = 3 if args.net in ['vgg', 'resnet'] else 0 
+THRESHOLDS = np.arange(0.95, 0.5, -0.05)
 
 ''' If save directory doesn't exist create '''
 if not os.path.exists(SAVE_DIR):
@@ -66,21 +67,22 @@ for epoch in args.epochs:
     passer = Passer(net, functloader, criterion, device)
     activs = passer.get_function()
 
-    ''' If high number of nodes compute adjacency on layers and chunks'''
-    if args.split:
-        adjs = build_adjacency_split(activs, sz_chunk=args.split)
+    for i_threshold, threshold in enumerate(THRESHOLDS):
+        ''' If high number of nodes compute adjacency on layers and chunks'''
+        if args.split:
+            adjs = build_adjacency_split(activs, sz_chunk=args.split, binarize_t=threshold)
 
-        for x in adjs:
-            path = SAVE_DIR + '/{}/layer{}_chunk{}/'.format(args.split, START_LAYER + x['layer'], x['chunk'])
+            for x in adjs:
+                path = SAVE_DIR + '/{}/layer{}_chunk{}/'.format(args.split, START_LAYER + x['layer'], x['chunk'])
                                     
-            if not os.path.exists(path):
-                os.makedirs(path)
+                if not os.path.exists(path):
+                    os.makedirs(path)
 
-            print('Saving ... trl{}, epc{}, layer{}, chunk{}, shape {}'.format(args.trial, epoch, START_LAYER+x['layer'], x['chunk'], x['data'].shape))
-            np.savetxt(path+'badj_epc{}_trl{}.csv'.format(epoch, args.trial), x['data'], fmt='%.2f', delimiter=",")
+                print('Saving ... trl{}, epc{}, threshold{}, layer{}, chunk{}, shape {}'.format(args.trial, epoch, threshold, START_LAYER+x['layer'], x['chunk'], x['data'].shape))
+                np.savetxt(path+'badj_epc{}_t{%.2f}_trl{}.csv'.format(epoch, threshold, args.trial), x['data'], fmt='%d', delimiter=",")
 
-    else:
-        ''' Build graph for entire network without splitting '''
-        activs = np.concatenate([np.transpose(a.reshape(a.shape[0], -1)) for a in activs], axis=0)
-        adj = build_adjacency(activs)
-        np.savetxt(SAVE_DIR + 'badj_epc{}_trl{}.csv'.format(epoch, args.trial), adj, fmt='%.2f', delimiter=",")
+        else:
+            ''' Build graph for entire network without splitting '''
+            activs = np.concatenate([np.transpose(a.reshape(a.shape[0], -1)) for a in activs], axis=0)
+            adj = build_adjacency(activs, binarize_t=threshold)
+            np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), adj, fmt='%d', delimiter=",")
