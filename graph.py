@@ -48,8 +48,8 @@ def adjacency_correlation(signals):
 
 def binarize(M, binarize_t):
     ''' Binarize matrix. Real subunitary values. '''
-    corr[M>binarize_t] = 1
-    corr[M<=binarize_t] = 0
+    M[M>binarize_t] = 1
+    M[M<=binarize_t] = 0
     
     return M
     
@@ -90,7 +90,7 @@ def build_adjacency(signals, binarize_t=None):
     
     ''' Binarize '''
     if binarize_t:
-        A = binarize(corr, binarize_t)
+        A = binarize(A, binarize_t)
     
     return A
 
