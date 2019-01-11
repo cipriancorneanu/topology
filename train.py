@@ -28,7 +28,7 @@ parser.add_argument('--epochs', default=50, type=int)
 parser.add_argument('--resume', default=0, type=int, help='resume from checkpoint')
 parser.add_argument('--resume_epoch', default=20, type=int, help='resume from epoch')
 parser.add_argument('--save_every', default=10, type=int)
-parser.add_argument('--shuffle_labels', default=0, type=int)
+parser.add_argument('--permute_labels', default=0, type=float)
 parser.add_argument('--fixed_init', default=0, type=int)
 parser.add_argument('--n_train_batches', default=0, type=int)
 parser.add_argument('--input_size', default=32, type=int)
@@ -79,11 +79,10 @@ loss_te, acc_te = passer_test.run()
 save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
 '''save_activations(activs, path='./activations/'+ONAME, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_0')'''
 
-
 losses = []
 for epoch in range(start_epoch, start_epoch+args.epochs):
     print('Epoch {}'.format(epoch))
-    loss_tr, acc_tr = passer_train.run(optimizer)
+    loss_tr, acc_tr = passer_train.run(optimizer, args.permute_labels)
     '''loss_tr, acc_tr = train(net, trainloader, device, optimizer, criterion, do_optimization=False,  shuffle_labels=args.shuffle_labels, n_batches=args.n_train_batches)'''
     loss_te, acc_te = passer_test.run()
     '''activs = passer_functional.get_function()'''
