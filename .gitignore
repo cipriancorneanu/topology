@@ -6,6 +6,9 @@ activations/
 adjacency/
 losses/
 checkpoint/
+scripts/data/
+scripts/checkpoint/
+scripts/losses/
 cpp/
 data/
 densities/
