@@ -57,13 +57,13 @@ elif args.dataset in ['mnist', 'mnist_adverarial']:
 
 
 for epoch in args.epochs:
-    print('==> Loading checkpoint...')
+    print('==> Loading checkpoint for epoch {}...'.format(epoch))
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
     checkpoint = torch.load('./checkpoint/'+ args.net + '_' + args.dataset + '/ckpt_trial_' + str(args.trial) + '_epoch_' + str(epoch)+'.t7')
     net.load_state_dict(checkpoint['net'])
     
     ''' Define passer and get activations'''
-    functloader = loader(args.dataset+'_test', subset=list(range(0, 1000)))
+    functloader = loader(args.dataset+'_test', batch_size=100, subset=list(range(0, 1000)))
     passer = Passer(net, functloader, criterion, device)
     activs = passer.get_function()
 
