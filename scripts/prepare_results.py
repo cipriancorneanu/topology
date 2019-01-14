@@ -19,7 +19,7 @@ for e in args.epochs:
     for t in args.thresholds:
         
         """ Read bettis from correspoding file """
-        fname = PATH + "/badj_epc{}_t{}_trl{}.csv_symmetric_bettis.txt".format(e, t, args.trial)
+        fname = PATH + 'badj_epc{}_t{}_trl{}.csv_symmetric_bettis.txt'.format(e, t, args.trial)
 
         with open(fname) as f:
             content = f.readlines()
@@ -35,5 +35,5 @@ for e in args.epochs:
 print(bettis)
 
 ''' Save bettis '''
-with open(PATH + "bettis.pkl", "wb") as f:
+with open(PATH + 'bettis.pkl', "wb") as f:
     pickle.dump(bettis, f, pickle.HIGHEST_PROTOCOL)
