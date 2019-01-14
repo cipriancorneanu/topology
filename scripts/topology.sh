@@ -3,7 +3,9 @@
 THRESHOLDS="0.95 0.90 0.85 0.80 0.75 0.70 0.65 0.60 0.55"
 PATH="/data/data1/datasets/cvpr2019/adjacency/"
 
-for e in $5
+echo $4
+
+for e in $4
 do
     for t in $THRESHOLDS
     do
