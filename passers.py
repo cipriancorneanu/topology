@@ -40,7 +40,7 @@ class Passer():
         losses, features, total, correct = [], [], 0, 0
         accuracies = []
         for batch_idx, (inputs, targets) in enumerate(self.loader):
-            if permute_labels and list(targets.size())[0]==128:    
+            if permute_labels:    
                 a = int(permute_labels*list(targets.size())[0])                
                 targets[:a] = targets[PERM[:a]]
 
