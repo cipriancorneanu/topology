@@ -49,28 +49,28 @@ TRANSFORMS_MNIST = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))])
 
 
-def loader(data, subset=[]):
+def loader(data, batch_size, subset=[]):
     ''' Interface to the dataloader function '''
     if data == 'mnist_train':
-        return dataloader('mnist', './data', train=True, transform=TRANSFORMS_MNIST, batch_size=128, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('mnist', './data', train=True, transform=TRANSFORMS_MNIST, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'mnist_test':
-        return dataloader('mnist', './data', train=False, transform=TRANSFORMS_MNIST, batch_size=100, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('mnist', './data', train=False, transform=TRANSFORMS_MNIST, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data  == 'cifar10_train':
-        return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10, batch_size=128, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'cifar10_test':
-        return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=100, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'mnist_adversarial':
         return dataloader('/data/data1/datasets/lenet_mnist_adversarial/', train=False,
-                          transform=TRANSFORMS_TE_CIFAR10, batch_size=100, shuffle=False, num_workers=2, subset=subset)
+                          transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'cifar10_adversarial':
         return dataloader('/data/data1/datasets/lenet_cifar_adversarial/', train=False,
-                          transform=TRANSFORMS_TE_CIFAR10, batch_size=100, shuffle=False, num_workers=2, subset=subset)
+                          transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'imagenet_train':
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/train/',
-                                 train=True, transform=TRANSFORMS_TR_IMAGENET, batch_size=128, shuffle=True, num_workers=2, subset=subset)
+                                 train=True, transform=TRANSFORMS_TR_IMAGENET, batch_size=batch_size, shuffle=True, num_workers=2, subset=subset)
     elif data == 'imagenet_test':
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/val/images/',
-                                 train=False, transform=TRANSFORMS_TE_IMAGENET, batch_size=100, shuffle=False, num_workers=2, subset=subset)
+                                 train=False, transform=TRANSFORMS_TE_IMAGENET, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
 
 
 def dataloader(data, path, train, transform, batch_size, shuffle, num_workers, subset=[]):
@@ -84,7 +84,7 @@ def dataloader(data, path, train, transform, batch_size, shuffle, num_workers, s
 
     if subset : dataset = torch.utils.data.Subset(dataset, subset)
     
-    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=True)
 
     return loader
 
