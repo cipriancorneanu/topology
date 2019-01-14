@@ -30,23 +30,26 @@ parser.add_argument('--resume_epoch', default=20, type=int, help='resume from ep
 parser.add_argument('--save_every', default=10, type=int)
 parser.add_argument('--permute_labels', default=0, type=float)
 parser.add_argument('--fixed_init', default=0, type=int)
-parser.add_argument('--n_train_batches', default=0, type=int)
+parser.add_argument('--train_batch_size', default=128, type=int)
+parser.add_argument('--test_batch_size', default=100, type=int)
 parser.add_argument('--input_size', default=32, type=int)
-args = parser.parse_args()
+parser.add_argument('--subset', default=0, type=float)
 
+args = parser.parse_args()
 
 SAVE_EPOCHS = list(range(10)) + list(range(10, args.epochs, args.save_every)) # At what epochs to save train/test stats
 ONAME = args.net + '_' + args.dataset # Meta-name to be used as prefix on all savings
-
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 best_acc = 0  # best test accuracy
 start_epoch = 1  # start from epoch 1 or last checkpoint epoch
 
 ''' Prepare loaders '''
-trainloader = loader(args.dataset+'_train')
-testloader = loader(args.dataset+'_test')
-functloader = loader(args.dataset+'_test', subset=list(range(0, 1000)))
+trainloader = loader(args.dataset+'_train', batch_size=args.train_batch_size)
+n_samples = len(trainloader)*args.train_batch_size
+subset = list(np.random.choice(n_samples, int(args.subset*n_samples)))
+subsettrainloader = loader(args.dataset+'_train', batch_size=args.train_batch_size, subset=subset)
+testloader = loader(args.dataset+'_test', batch_size=args.test_batch_size)
 
 criterion  = get_criterion(args.dataset)
     
@@ -59,7 +62,7 @@ if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-''' Resume from checkpoint'''
+''' Initialize weights from checkpoint'''
 if args.resume:
     net, best_acc, start_acc = init_from_checkpoint(net)
     
@@ -68,24 +71,22 @@ optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5
 lr_scheduler = ReduceLROnPlateau(optimizer, factor=0.5, mode='max', verbose=True)
 
 ''' Define passer'''
-passer_train = Passer(net, trainloader, criterion, device)
+if not args.subset:
+    passer_train = Passer(net, trainloader, criterion, device)
+else:
+    passer_train = Passer(net, subsettrainloader, criterion, device)
+    
 passer_test = Passer(net, testloader, criterion, device)
-passer_functional = Passer(net, functloader, criterion, device)
-
 
 ''' Make intial pass before any training '''
 loss_te, acc_te = passer_test.run()
-'''activs = passer_functional.run()'''
 save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
-'''save_activations(activs, path='./activations/'+ONAME, fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_0')'''
 
 losses = []
 for epoch in range(start_epoch, start_epoch+args.epochs):
     print('Epoch {}'.format(epoch))
     loss_tr, acc_tr = passer_train.run(optimizer, args.permute_labels)
-    '''loss_tr, acc_tr = train(net, trainloader, device, optimizer, criterion, do_optimization=False,  shuffle_labels=args.shuffle_labels, n_batches=args.n_train_batches)'''
     loss_te, acc_te = passer_test.run()
-    '''activs = passer_functional.get_function()'''
     
     losses.append({'loss_tr':loss_tr, 'loss_te': loss_te, 'acc_tr': acc_tr, 'acc_te':acc_te})
         
@@ -93,7 +94,6 @@ for epoch in range(start_epoch, start_epoch+args.epochs):
 
     if epoch in SAVE_EPOCHS:
         save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': epoch}, path='./checkpoint/'+ONAME+'/', fname='ckpt_trial_'+str(args.trial)+'_epoch_'+str(epoch)+'.t7')
-        '''save_activations(activs, path='./activations/'+ONAME+'/', fname='activations_trial_'+str(args.trial)+'.hdf5', internal_path='epoch_'+str(epoch))'''
 
 '''Save losses'''
 save_losses(losses, path='./losses/'+ONAME+'/', fname='stats_trial_' +str(args.trial) +'.pkl')
