@@ -23,8 +23,10 @@ parser.add_argument('--net')
 parser.add_argument('--dataset')
 parser.add_argument('--trial', default=0, type=int)
 parser.add_argument('--epochs', nargs='+', type=int)
-parser.add_argument('--split', type=int)
+parser.add_argument('--split', type=int, default=0)
+parser.add_argument('--kl', type=int, default=0)
 parser.add_argument('--input_size', default=32, type=int)
+parser.add_argument('--thresholds', nargs='+', type=float)
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -34,7 +36,7 @@ oname = args.net + '_' + args.dataset + '/'
 SAVE_PATH = '/data/data1/datasets/cvpr2019/'
 SAVE_DIR = SAVE_PATH + 'adjacency/' + oname
 START_LAYER = 3 if args.net in ['vgg', 'resnet'] else 0 
-THRESHOLDS = np.arange(0.95, 0.5, -0.05)
+THRESHOLDS = args.thresholds
 
 ''' If save directory doesn't exist create '''
 if not os.path.exists(SAVE_DIR):
@@ -62,27 +64,43 @@ for epoch in args.epochs:
     checkpoint = torch.load('./checkpoint/'+ args.net + '_' + args.dataset + '/ckpt_trial_' + str(args.trial) + '_epoch_' + str(epoch)+'.t7')
     net.load_state_dict(checkpoint['net'])
     
-    ''' Define passer and get activations'''
+    ''' Define passer and get activations '''
     functloader = loader(args.dataset+'_test', batch_size=100, subset=list(range(0, 1000)))
     passer = Passer(net, functloader, criterion, device)
     activs = passer.get_function()
 
-    for i_threshold, threshold in enumerate(THRESHOLDS):
-        ''' If high number of nodes compute adjacency on layers and chunks'''
-        if args.split:
-            adjs = build_adjacency_split(activs, sz_chunk=args.split, binarize_t=threshold)
+    ''' If high number of nodes compute adjacency on layers and chunks'''
 
-            for x in adjs:
-                path = SAVE_DIR + '/{}/layer{}_chunk{}/'.format(args.split, START_LAYER + x['layer'], x['chunk'])
-                                    
-                if not os.path.exists(path):
-                    os.makedirs(path)
-
-                print('Saving ... trl{}, epc{}, threshold{}, layer{}, chunk{}, shape {}'.format(args.trial, epoch, threshold, START_LAYER+x['layer'], x['chunk'], x['data'].shape))
-                np.savetxt(path+'badj_epc{}_t{%.2f}_trl{}.csv'.format(epoch, threshold, args.trial), x['data'], fmt='%d', delimiter=",")
-
+    ''' Treat all network at once or split it into chunks and treat each '''
+    if not args.split:
+        activs = signal_concat(activs)
+        adj = adjacency(activs)
+        
+        for threshold in THRESHOLDS:
+            badj = binarize(np.copy(adj), threshold)
+            print('t={} s={}'.format(threshold, np.sum(badj)))
+            np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), badj, fmt='%d', delimiter=",")
+    else:
+        splits = signal_splitting(activs, args.split)
+        
+        if not args.kl:
+            ''' Compute correlation metric for each split'''
+            adjs = [[adjacency(x) for x in layer] for layer in splits]
+            for threhold in THRESHOLDS:
+                save_splits(adjs, args.split, SAVE_DIR, START_LAYER, epoch, threshold, args.trial)
         else:
-            ''' Build graph for entire network without splitting '''
-            activs = np.concatenate([np.transpose(a.reshape(a.shape[0], -1)) for a in activs], axis=0)
-            adj = build_adjacency(activs, binarize_t=threshold)
-            np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), adj, fmt='%d', delimiter=",")
+            ''' Compute KL divergence between correlation distribution of each pair of splits '''
+            adj = adjacency_kl(splits)
+            for threshold in THREHSOLDS:
+                np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), adj, fmt='%d', delimiter=",")
+                
+
+
+
+                
+                
+
+
+
+
+        
