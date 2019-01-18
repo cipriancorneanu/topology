@@ -26,16 +26,15 @@ def corrpdf(signals):
     Compute pdf of correlations between signals
     signals: 2D ndarray, each row is a signal 
     '''
-    
-    ''' Get correlation matrix '''
-    x = np.corrcoef(signals)
 
+    ''' Get correlation matrix '''
+    x = np.abs(np.corrcoef(signals))
+    
     ''' Get upper triangular part and vectorize'''
     x = np.triu(x).flatten()
-    ''' Beware of diagonal and zeros !!'''
     
     ''' Compute pdf'''
-    pdf, _ = np.histogram(x, bins=np.arange(-1, 1, 0.01), density=True)
+    pdf, _ = np.histogram(x, bins=np.arange(0, 1, 0.1), density=True)
     
     return pdf
 
@@ -50,14 +49,14 @@ def binarize(M, binarize_t):
     ''' Binarize matrix. Real subunitary values. '''
     M[M>binarize_t] = 1
     M[M<=binarize_t] = 0
-    
+
     return M
     
 
 def adjacency(signals, metric=None):
     '''
     Build matrix A  of dimensions nxn where a_{ij} = metric(a_i, a_j).
-    signals: nxm matrix whre each row (signal[k], k=range(n)) is a signal. 
+    signals: nxm matrix where each row (signal[k], k=range(n)) is a signal. 
     metric: a function f(.,.) that takes two 1D ndarrays and outputs a single real number (e.g correlation, KL divergence etc).
     '''
     
@@ -65,64 +64,50 @@ def adjacency(signals, metric=None):
     signals = np.reshape(signals, (signals.shape[0], -1))
     ''' If no metric provided fast-compute correlation  '''
     if not metric:
-        return np.nan_to_num(np.corrcoef(signals))
+        return np.abs(np.nan_to_num(np.corrcoef(signals)))
         
     n, m = signals.shape
 
     A = np.zeros((n, n))
 
-    print(signals[2].shape)
-
     for i in range(n):
         for j in range(n):
             A[i,j] = metric(signals[i], np.transpose(signals[j]))
             
-    return A
+    return np.abs(np.nan_to_num(A))
 
-
-def build_adjacency(signals, binarize_t=None):
-    '''
-    Build adjacency matrix
-    '''
     
-    ''' Compute adjacency (default metric is correlation)'''
-    A = adjacency(signals)
+def signal_splitting(signals, sz_chunk):
+    splits = []
     
-    ''' Binarize '''
-    if binarize_t:
-        A = binarize(A, binarize_t)
-    
-    return A
-
-
-def build_adjacency_split(signals,  sz_chunk, binarize_t=None):
-    ''' 
-    Split signals into chunks and Build adjacency matrix for each.
-    signals: a list of signals. 
-    sz_chunk: size of chunks to split signal 
-    '''
-
-    out = []
-    for i_x, x in enumerate(signals):
-        sz = np.prod(np.shape(x)[1:])
+    for s in signals:
+        s = np.reshape(s, (s.shape[0], np.prod(s.shape[1:])))
+        sz = np.prod(np.shape(s)[1:])
         
         if sz > sz_chunk:
-            chunks = np.array_split(x, sz/sz_chunk, axis=1)
+            splits.append([np.transpose(x) for x in np.array_split(s, sz/sz_chunk, axis=1)])
         else:
-            chunks = [x]
-            
-        for i_chunk, chunk in enumerate(chunks):
-            nodes = np.transpose(chunk.reshape(chunk.shape[0], -1))
-            '''nodes = np.concatenate([np.transpose(a.reshape(a.shape[0], -1)) for a in activs], axis=0)'''
+            splits.append([np.transpose(s)])
+        
+    return splits
 
-            A = adjacency(nodes)
 
-            if binarize_t:
-                A = binarize(A, binarize_t)
-            
-            out.append({'layer':i_x, 'chunk': i_chunk, 'data': A})
+def signal_concat(signals):
+    return np.concatenate([np.transpose(x.reshape(x.shape[0], -1)) for x in signals], axis=0)
 
-    return out
+
+def adjacency_kl(splits):    
+    ''' Get correlation distribution for each split and build adjacency matrix between
+    set of chunks using KL divergence between distributions. '''
+    
+    ''' Compute correlation pdfs per split '''
+    corrpdfs = [corrpdf(x) for layer in splits for x in layer]
+    
+    ''' Compute adjacency (Kullbach-Liebler metric) matrix'''
+    A = adjacency(np.asarray(corrpdfs), metric=kl)
+
+    return A
+
 
 def build_density_adjacency(activs, density_t):
     nodes = np.concatenate([np.transpose(a.reshape(a.shape[0], -1)) for a in activs], axis=0)

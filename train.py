@@ -22,12 +22,12 @@ from loaders import *
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--net')
 parser.add_argument('--dataset')
-parser.add_argument('--lr', default=0.1, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.05, type=float, help='learning rate')
 parser.add_argument('--trial', default=0, type=int)
 parser.add_argument('--epochs', default=50, type=int)
 parser.add_argument('--resume', default=0, type=int, help='resume from checkpoint')
 parser.add_argument('--resume_epoch', default=20, type=int, help='resume from epoch')
-parser.add_argument('--save_every', default=10, type=int)
+parser.add_argument('--save_every', default=5, type=int)
 parser.add_argument('--permute_labels', default=0, type=float)
 parser.add_argument('--fixed_init', default=0, type=int)
 parser.add_argument('--train_batch_size', default=128, type=int)
@@ -37,7 +37,7 @@ parser.add_argument('--subset', default=0, type=float)
 
 args = parser.parse_args()
 
-SAVE_EPOCHS = list(range(10)) + list(range(10, args.epochs, args.save_every)) # At what epochs to save train/test stats
+SAVE_EPOCHS = list(range(11)) + list(range(10, args.epochs+1, args.save_every)) # At what epochs to save train/test stats
 ONAME = args.net + '_' + args.dataset # Meta-name to be used as prefix on all savings
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -80,7 +80,7 @@ passer_test = Passer(net, testloader, criterion, device)
 
 ''' Make intial pass before any training '''
 loss_te, acc_te = passer_test.run()
-save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/', fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
+save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/'+ONAME, fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
 
 losses = []
 for epoch in range(start_epoch, start_epoch+args.epochs):
