@@ -129,3 +129,15 @@ def format_time(seconds):
         f = '0ms'
     return f
 
+def save_splits(splits, split_size, save_dir, start_layer, epoch, threshold, trial):
+    ''' Some description '''
+    for i_layer, layer in enumerate(splits):
+        for i_chunk, chunk in enumerate(layer):
+            path = save_dir + '/{}/layer{}_chunk{}/'.format(split_size, start_layer + i_layer, i_chunk)
+        
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            print('Saving ... trl{}, epc{}, threshold{:1.2f}, layer{}, chunk{}, shape {}'.format(trial, epoch, threshold, start_layer+i_layer, i_chunk, chunk.shape))
+            np.savetxt(path+'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, trial), chunk, fmt='%d', delimiter=",")
+
