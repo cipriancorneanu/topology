@@ -29,21 +29,21 @@ do
     esac
 done
 
-echo $EPOCHS_TEST
+THRESHOLDS="0.95 0.90 0.85 0.80 0.75 0.70 0.65 0.60 0.55 0.50"
 
 echo ""
 echo "----------------------------------------"
 echo "Training network"
 echo "----------------------------------------"
 echo ""
-python ../train.py --net $NET --dataset $DATASET --trial $TRIAL --epochs $N_EPOCHS_TRAIN --permute_labels $PERM_LABELS --subset $DATA_SUBSET
+python ../train.py --net $NET --dataset $DATASET --trial $TRIAL --epochs $N_EPOCHS_TRAIN --permute_labels $PERM_LABELS --subset $DATA_SUBSET 
 
 echo ""
 echo "----------------------------------------"
 echo "Building graph"
 echo "----------------------------------------"
 echo ""
-python ../build_graph_functional.py --net $NET --dataset $DATASET --trial $TRIAL --epochs $EPOCHS_TEST
+python ../build_graph_functional.py --net $NET --dataset $DATASET --trial $TRIAL --epochs $EPOCHS_TEST --thresholds $THRESHOLDS 
 
 echo ""
 echo "----------------------------------------"
@@ -53,7 +53,10 @@ echo ""
 
 for e in $EPOCHS_TEST
 do
-    ./topology.sh $NET $DATASET $TRIAL $e
+    for t in $THRESHOLDS
+    do
+	./topology.sh $NET $DATASET $TRIAL $e $t 
+    done
 done
 
 echo ""
@@ -62,8 +65,7 @@ echo "Prepare topology results"
 echo "----------------------------------------"
 echo ""
 
-THRESHOLDS="0.95 0.90 0.85 0.80 0.75 0.70 0.65 0.60 0.55"
 for e in $EPOCHS_TEST
 do
-    python prepare_results.py --net $NET --dataset $DATASET --trial $TRIAL --epochs $e  --thresholds $THRESHOLDS
+    python prepare_results.py --net $NET --dataset $DATASET --trial $TRIAL --epochs $e  --thresholds $THRESHOLDS --permute_labels $PERM_LABELS --subset $DATA_SUBSET
 done
