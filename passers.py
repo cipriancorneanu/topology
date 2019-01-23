@@ -2,12 +2,6 @@ from utils import progress_bar
 import torch
 import numpy as np
 
-''' Do subsampling and label shuffling in the data loader'''
-'''if n_batches and batch_idx > n_batches: break'''
-'''
-if shuffle_labels and list(targets.size())[0]==128:
-targets = targets[PERM]
-'''
 
 def get_accuracy(predictions, targets):
     ''' Compute accuracy of predictions to targets. max(predictions) is best'''
@@ -28,38 +22,41 @@ PERM = [30,  88,  93,  10,  53,  28,  22,   9, 116,  20,  51, 106,  14,
                 50, 102, 112, 104,  45,  18,  62,  33, 127,  16,  38,  63,  85,
                124,  98,  36, 107,  73,  69,  34,  15, 114, 126,  13]
 
+
 class Passer():
-    def __init__(self, net, loader, criterion, device):
+    def __init__(self, net, loader, criterion, device, repeat=1):
         self.network = net
         self.criterion = criterion
         self.device = device
         self.loader = loader
+        self.repeat = repeat
 
     def _pass(self, optimizer=None, permute_labels=0):
         ''' Main data passing routing '''
         losses, features, total, correct = [], [], 0, 0
         accuracies = []
-        for batch_idx, (inputs, targets) in enumerate(self.loader):
-            if permute_labels:    
-                a = int(permute_labels*list(targets.size())[0])                
-                targets[:a] = targets[PERM[:a]]
+        
+        for r in range(1, self.repeat+1):
+            for batch_idx, (inputs, targets) in enumerate(self.loader):
+                if permute_labels:    
+                    a = int(permute_labels*list(targets.size())[0])                
+                    targets[:a] = targets[PERM[:a]]
 
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
+                inputs, targets = inputs.to(self.device), targets.to(self.device)
             
-            if optimizer: optimizer.zero_grad()
-            outputs = self.network(inputs)
+                if optimizer: optimizer.zero_grad()
+                outputs = self.network(inputs)
 
-            loss = self.criterion(outputs, targets)
-            losses.append(loss.item())
+                loss = self.criterion(outputs, targets)
+                losses.append(loss.item())
             
-            if optimizer:
-                loss.backward()
-                optimizer.step()
+                if optimizer:
+                    loss.backward()
+                    optimizer.step()
 
-            accuracies.append(get_accuracy(outputs, targets))
-            
-            progress_bar(batch_idx, len(self.loader), 'Mean Loss: %.3f | Last Loss: %.3f | Acc: %.3f%%'
-                     % (np.mean(losses), losses[-1], np.mean(accuracies)))
+                accuracies.append(get_accuracy(outputs, targets))
+                progress_bar((r-1)*len(self.loader)+batch_idx, r*len(self.loader), 'repeat %d -- Mean Loss: %.3f | Last Loss: %.3f | Acc: %.3f%%'
+                             % (r, np.mean(losses), losses[-1], np.mean(accuracies)))
 
         return np.asarray(losses), np.mean(accuracies)
     
@@ -75,11 +72,12 @@ class Passer():
 
             
     def get_function(self):
-        ''' Collect function (features) from the self.network.modeule.forward_features() routine '''
+        ''' Collect function (features) from the self.network.module.forward_features() routine '''
         features = []
         for batch_idx, (inputs, targets) in enumerate(self.loader):
             inputs, targets = inputs.to(self.device), targets.to(self.device)
             outputs = self.network(inputs)
+                
             features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_features(inputs)])
 
             progress_bar(batch_idx, len(self.loader))
