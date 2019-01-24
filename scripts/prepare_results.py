@@ -11,9 +11,10 @@ parser.add_argument('--thresholds', nargs='+')
 parser.add_argument('--n_bettis', type=int, default=3)
 parser.add_argument('--permute_labels', type=float)
 parser.add_argument('--subset', type=float)
+parser.add_argument('--path')
 args = parser.parse_args()
 
-PATH = '/data/data1/datasets/cvpr2019/adjacency/' + args.net + '_' + args.dataset + '/'
+path = args.path + 'adjacency/' + args.net + '_' + args.dataset + '/'
 
 bettis = {}
 for e in args.epochs:
@@ -21,19 +22,23 @@ for e in args.epochs:
     for t in args.thresholds:
         
         """ Read bettis from correspoding file """
-        fname = PATH + 'badj_epc{}_t{}_trl{}.csv_symmetric_bettis.txt'.format(e, t, args.trial)
-
+        fname = path + 'badj_epc{}_t{}_trl{}.csv_symmetric_bettis.txt'.format(e, t, args.trial)
+        
         with open(fname) as f:
             content = f.readlines()
 
         content = content[0].split(',')[1:1+args.n_bettis]
-        content = [int(x) for x in content]
-
         
-        epoch['t_{}'.format(t)] = content
-
+        content_ints = []
+        for x in content:
+            try:
+                content_ints.append(int(x))
+            except ValueError:
+                content_ints.append(0)
+        
+        epoch['t_{}'.format(t)] = content_ints
     bettis['epc_{}'.format(e)] = epoch
 
 ''' Save bettis '''
-with open(PATH + 'bettis_p{}_s{}.pkl'.format(args.permute_labels, args.subset), "wb") as f:
+with open(path + 'bettis_trl{}_p{}_s{}.pkl'.format(args.trial, args.permute_labels, args.subset), "wb") as f:
     pickle.dump(bettis, f, pickle.HIGHEST_PROTOCOL)
