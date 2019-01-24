@@ -61,7 +61,11 @@ def adjacency(signals, metric=None):
     '''
     
     ''' Get input dimensions '''
-    signals = np.reshape(signals, (signals.shape[0], -1))
+    shape0,shape1 = signals.shape
+    if shape0<1000 or shape1>1000 and shape0>shape1:
+        signals = np.reshape(signals, (signals.shape[1], -1))
+    else:
+        signals = np.reshape(signals, (signals.shape[0], -1))
     ''' If no metric provided fast-compute correlation  '''
     if not metric:
         return np.abs(np.nan_to_num(np.corrcoef(signals)))
@@ -90,6 +94,21 @@ def signal_splitting(signals, sz_chunk):
             splits.append([np.transpose(s)])
         
     return splits
+
+def signal_dimension_adjusting(signals, sz_chunk):
+    splits = []
+    for s in signals:
+        s = np.reshape(s, (s.shape[0], np.prod(s.shape[1:])))
+        sz = np.prod(np.shape(s)[1:])
+        
+        if sz >= sz_chunk:
+            [splits.append(np.transpose(x)) for x in np.array_split(s, sz/sz_chunk, axis=1)]
+        else:
+            splits.append([np.transpose(s)])
+    for s in splits:
+        print("splits size = ",len(s),len(s[0]))
+    sp = [np.concatenate(list(zip(*splits))[i]) for i in range(len(splits[0]))]
+    return sp
 
 
 def signal_concat(signals):
