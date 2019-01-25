@@ -44,7 +44,6 @@ TRANSFORMS_MNIST_ADV = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))])
 
 TRANSFORMS_MNIST = transforms.Compose([
-    transforms.Resize(32),
     transforms.ToTensor(),
     transforms.Normalize((0.1307,), (0.3081,))])
 
@@ -55,7 +54,7 @@ def loader(data, batch_size, subset=[]):
         return dataloader('mnist', './data', train=True, transform=TRANSFORMS_MNIST, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'mnist_test':
         return dataloader('mnist', './data', train=False, transform=TRANSFORMS_MNIST, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
-    elif data  == 'cifar10_train':
+    elif data == 'cifar10_train':
         return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'cifar10_test':
         return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
