@@ -86,15 +86,18 @@ class Passer():
 
     def get_structure(self):
         ''' Collect structure (weights) from the self.network.module.forward_weights() routine '''
+        # modified #
+        ## NOTICE: only weights are maintained and combined into two dimensions, biases are ignored
         weights = []
-        for batch_idx, (inputs, targets) in enumerate(self.loader):
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
-            outputs = self.network(inputs)
-            weights.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_weights(inputs)])
-
-            progress_bar(batch_idx, len(self.loader))
-            
-        return [np.concatenate(list(zip(*weights))[i]) for i in range(len(weights[0]))]
+        [print("we get data type is {}, size is {}".format(type(f.data),f.size())) for f in self.network.parameters()]
+        for index, var in enumerate(self.network.parameters()):
+            if index % 2 == 0:
+                f = var.cpu().data.numpy().astype(np.float16) # var as Variable, type(var.data) is Tensor, should be transformed from cuda to cpu(),with type float16
+                weight = np.reshape(f, (f.shape[0], np.prod(f.shape[1:])))
+                print("weight size ==== ", weight.shape)
+                weights.append(weight)
+       
+        return weights
 
 
 '''
