@@ -11,6 +11,10 @@ def get_model(name, dataset):
         net = LeNet(num_classes=10)
     if name=='lenet' and dataset == 'imagenet':
         net = LeNet(num_classes=200)
+    if name=='lenet32' and dataset in ['mnist', 'cifar10', 'mnist_adversarial']:
+        net = LeNet(num_classes=10, input_size=32)
+    if name=='lenet32' and dataset == 'imagenet':
+        net = LeNet(num_classes=200, input_size=32)
     if name=='lenetext' and dataset=='mnist':
         net = LeNetExt(n_channels=1, num_classes=10)
     if name=='lenetext' and dataset=='cifar10':
