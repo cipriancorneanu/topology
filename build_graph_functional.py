@@ -78,7 +78,7 @@ for epoch in args.epochs:
         
         for threshold in THRESHOLDS:
             badj = binarize(np.copy(adj), threshold)
-            print('t={} s={}'.format(threshold, np.sum(badj)))
+            '''print('t={} s={}'.format(threshold, np.sum(badj)))'''
             np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), badj, fmt='%d', delimiter=",")
     else:
         splits = signal_splitting(activs, args.split)
@@ -86,21 +86,12 @@ for epoch in args.epochs:
         if not args.kl:
             ''' Compute correlation metric for each split'''
             adjs = [[adjacency(x) for x in layer] for layer in splits]
-            for threhold in THRESHOLDS:
+            for threshold in THRESHOLDS:
                 save_splits(adjs, args.split, SAVE_DIR, START_LAYER, epoch, threshold, args.trial)
         else:
             ''' Compute KL divergence between correlation distribution of each pair of splits '''
             adj = adjacency_kl(splits)
-            for threshold in THREHSOLDS:
+            for threshold in THRESHOLDS:
                 np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), adj, fmt='%d', delimiter=",")
                 
-
-
-
-                
-                
-
-
-
-
         
