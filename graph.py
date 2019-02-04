@@ -72,11 +72,14 @@ def adjacency(signals, metric=None):
     '''
     
     ''' Get input dimensions '''
+    '''
     shape0,shape1 = signals.shape
     if shape0<1000 or shape1>1000 and shape0>shape1:
         signals = np.reshape(signals, (signals.shape[1], -1))
     else:
-        signals = np.reshape(signals, (signals.shape[0], -1))
+    '''
+    signals = np.reshape(signals, (signals.shape[0], -1))
+
     ''' If no metric provided fast-compute correlation  '''
     if not metric:
         return np.nan_to_num(np.corrcoef(signals))
