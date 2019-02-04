@@ -4,6 +4,7 @@ import numpy as np
 from config import SAVE_PATH
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--train', default=1, type=int)
 parser.add_argument('--net', help='Specify deep network architecture (e.g. lenet, alexnet, resnet, inception, vgg, etc)')
 parser.add_argument('--dataset', help='Specify dataset (e.g. mnist, cifar10, imagenet)')
 parser.add_argument('--trial', default=0, help='Specify trial number. Used to differentiate btw multiple trainings of same setup.')
@@ -28,11 +29,12 @@ def visible_print(message):
     print('')
     
 
-visible_print('Training network')
-os.system('python ../train.py --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.n_epochs_train+' --lr '+args.lr+' --permute_labels '+args.permute_labels+' --subset '+args.data_subset)
+if args.train:
+    visible_print('Training network')
+    os.system('python ../train.py --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.n_epochs_train+' --lr '+args.lr+' --permute_labels '+args.permute_labels+' --subset '+args.data_subset)
 
 visible_print('Building graph')
-os.system('python ../build_graph_functional.py --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds)
+os.system('python ../build_graph_functional.py --save_path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds)
 
 visible_print('Computing topology')
 os.system('python compute_topology.py --save_path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --trial '+ args.trial)
