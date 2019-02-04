@@ -58,12 +58,14 @@ def loader(data, batch_size, subset=[]):
         return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'cifar10_test':
         return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
-    elif data == 'mnist_adversarial':
+    elif data == 'lenet_mnist_adversarial_test':
         return dataloader('/data/data1/datasets/lenet_mnist_adversarial/', train=False,
                           transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
-    elif data == 'cifar10_adversarial':
+    elif data == 'lenet_cifar10_adversarial_test':
         return dataloader('/data/data1/datasets/lenet_cifar_adversarial/', train=False,
                           transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+    elif data == 'vgg_cifar10_adversarial_test':
+        return dataloader('vgg_cifar10_adversarial', '/data/data1/datasets/vgg_cifar_adversarial/', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
     elif data == 'imagenet_train':
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/train/',
                                  train=True, transform=TRANSFORMS_TR_IMAGENET, batch_size=batch_size, shuffle=True, num_workers=2, subset=subset)
@@ -71,9 +73,8 @@ def loader(data, batch_size, subset=[]):
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/val/images/',
                                  train=False, transform=TRANSFORMS_TE_IMAGENET, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
 
-
-def dataloader(data, path, train, transform, batch_size, shuffle, num_workers, subset=[]):
-    ''' Return loader for torchvision data '''
+def get_dataset(data, path, train, transform):
+    ''' Return loader for torchvision data. If data in [mnist, cifar] torchvision.datasets has built-in loaders else load from ImageFolder '''
     if data == 'mnist':
         dataset = torchvision.datasets.MNIST(path, train=train, download=True, transform=transform)
     elif data == 'cifar10':
@@ -81,14 +82,15 @@ def dataloader(data, path, train, transform, batch_size, shuffle, num_workers, s
     else:
         dataset = torchvision.datasets.ImageFolder(path, transform=transform)
 
-    if subset : dataset = torch.utils.data.Subset(dataset, subset)
-    
-    loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=True)
-
-    return loader
+    return dataset
 
 
+def dataloader(data, path, train, transform, batch_size, shuffle, num_workers, subset=[]):
+    dataset = get_dataset(data, path, train, transform)
+    if subset:
+        dataset = torch.utils.data.Subset(dataset, subset)
 
+    return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=True)
 
 
 '''
