@@ -12,7 +12,7 @@ cfg = {
 
 
 class VGG(nn.Module):
-    def __init__(self, vgg_name, num_classes):
+    def __init__(self, vgg_name, num_classes=10):
         super(VGG, self).__init__()
         self.name = vgg_name
         self.features = self._make_layers(cfg[vgg_name])
