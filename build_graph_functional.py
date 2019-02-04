@@ -21,6 +21,7 @@ from graph import *
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--net')
 parser.add_argument('--dataset')
+parser.add_argument('--save_path')
 parser.add_argument('--trial', default=0, type=int)
 parser.add_argument('--epochs', nargs='+', type=int)
 parser.add_argument('--split', type=int, default=0)
@@ -35,9 +36,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
 ''' Meta-name to be used as prefix on all savings'''
 oname = args.net + '_' + args.dataset + '/'
-SAVE_PATH = './data/'
-#SAVE_PATH = '/data/data1/datasets/cvpr2019/'
-SAVE_DIR = SAVE_PATH + 'adjacency/' + oname
+SAVE_DIR = args.save_path + 'adjacency/' + oname
 START_LAYER = 3 if args.net in ['vgg', 'resnet'] else 0 
 THRESHOLDS = args.thresholds
 
@@ -55,7 +54,7 @@ if device == 'cuda':
     cudnn.benchmark = True
 
 ''' Prepare criterion '''
-if args.dataset in ['cifar10', 'imagenet']:
+if args.dataset in ['cifar10', 'vgg_cifar10_adversarial', 'imagenet']:
     criterion = nn.CrossEntropyLoss()
 elif args.dataset in ['mnist', 'mnist_adverarial']:
     criterion = F.nll_loss
@@ -73,6 +72,9 @@ for epoch in args.epochs:
  
     if args.graph_type == 'functional':
         activs = passer.get_function()
+
+        for i, a in enumerate(activs):
+            print('{}: {}'.format(i, a.shape))
 
         ''' If high number of nodes compute adjacency on layers and chunks'''
         ''' Treat all network at once or split it into chunks and treat each '''
@@ -100,7 +102,6 @@ for epoch in args.epochs:
     elif args.graph_type == 'structural':
         weights = passer.get_structure()
         ''' If high number of nodes compute adjacency on layers and chunks'''
-
         ''' Treat all network at once or split it into chunks and treat each '''
         if not args.split:
             splits = signal_dimension_adjusting(weights,weights[0].shape[1])
