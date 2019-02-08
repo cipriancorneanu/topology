@@ -1,7 +1,8 @@
 from utils import progress_bar
 import torch
 import numpy as np
-from permutations import P128
+from labels import identity
+
 
 def get_accuracy(predictions, targets):
     ''' Compute accuracy of predictions to targets. max(predictions) is best'''
@@ -20,17 +21,14 @@ class Passer():
         self.loader = loader
         self.repeat = repeat
 
-    def _pass(self, optimizer=None, permute_labels=0):
+    def _pass(self, optimizer=None, manipulator=identity):
         ''' Main data passing routing '''
         losses, features, total, correct = [], [], 0, 0
         accuracies = []
         
         for r in range(1, self.repeat+1):
             for batch_idx, (inputs, targets) in enumerate(self.loader):
-                if permute_labels:    
-                    a = int(permute_labels*list(targets.size())[0])                
-                    targets[:a] = targets[P128[:a]]
-
+                targets = manipulator(targets)
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
             
                 if optimizer: optimizer.zero_grad()
@@ -50,14 +48,14 @@ class Passer():
         return np.asarray(losses), np.mean(accuracies)
     
     
-    def run(self, optimizer=None, permute_labels=0):
+    def run(self, optimizer=None, manipulator=identity):
         if optimizer:
             self.network.train()
-            return self._pass(optimizer, permute_labels)
+            return self._pass(optimizer, manipulator=manipulator)
         else:
             self.network.eval()
             with torch.no_grad():
-                return self._pass(permute_labels=permute_labels)
+                return self._pass(manipulator=manipulator)
 
             
     def get_function(self):
@@ -87,115 +85,3 @@ class Passer():
                 weights.append(weight)
        
         return weights
-
-
-'''
-
-def train(net, trainloader, device, optimizer, criterion, do_optimization, shuffle_labels, n_batches):
-    net.train()
-    train_loss, correct, total = 0, 0, 0
-    loss_acc = []
-    
-    for batch_idx, (inputs, targets) in enumerate(trainloader):
-        if n_batches and batch_idx > n_batches: break
-            
-        if shuffle_labels and list(targets.size())[0]==128:
-            targets = targets[PERM]
-                
-        inputs, targets = inputs.to(device), targets.to(device)
-                
-        optimizer.zero_grad()
-        outputs = net(inputs)
-
-        loss = criterion(outputs, targets)
-        loss_acc.append(loss.item())
-
-        loss.backward()
-        optimizer.step()
-                
-        train_loss += loss.item()
-        _, predicted = outputs.max(1)
-                
-        total += targets.size(0)
-        correct += predicted.eq(targets).sum().item()
-
-    accuracy = 100.*correct/total
-    
-    progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)\n'
-                 % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
-
-    return np.asarray(loss_acc), accuracy
-
-def train_subset(net, trainloader, device, optimizer, criterion, do_optimization, shuffle_labels, n_batches):
-    net.train()
-    train_loss, correct, total = 0, 0, 0
-    loss_acc = []
-    if do_optimization:
-        n_repeats = int((60000/128)/n_batches)
-    else:
-        n_repeats = 1
-
-    
-    for repeat in range(0, n_repeats):
-        for batch_idx, (inputs, targets) in enumerate(trainloader):
-            if n_batches and batch_idx>n_batches: break
-            
-            if shuffle_labels and list(targets.size())[0]==128:
-                targets = targets[PERM]
-                
-            inputs, targets = inputs.to(device), targets.to(device)
-                
-            optimizer.zero_grad()
-            outputs = net(inputs)
-
-            loss = criterion(outputs, targets)
-            loss_acc.append(loss.item())
-
-            if do_optimization:
-                loss.backward()
-                optimizer.step()
-                
-            train_loss += loss.item()
-            _, predicted = outputs.max(1)
-                
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
-
-    accuracy = 100.*correct/total
-    
-    progress_bar(batch_idx, len(trainloader), 'Loss: %.3f | Acc: %.3f%% (%d/%d)\n'
-                 % (train_loss/(batch_idx+1), 100.*correct/total, correct, total))
-
-    return np.asarray(loss_acc), accuracy
-
-
-def test(net, testloader, device, criterion, n_test_batches):
-    net.eval()
-    test_loss, correct, total, target_acc, activation_acc = 0, 0, 0, [], []
-    loss_acc = []
-    with torch.no_grad():
-        for batch_idx, (inputs, targets) in enumerate(testloader):            
-            inputs, targets = inputs.to(device), targets.to(device)            
-            outputs = net(inputs)
-
-            if batch_idx < n_test_batches:
-                activations = [a.cpu().data.numpy().astype(np.float16) for a in net.module.forward_features(inputs)]
-                target_acc.append(targets.cpu().data.numpy())
-                activation_acc.append(activations)
-
-            loss = criterion(outputs, targets)
-            test_loss += loss.item()
-            loss_acc.append(loss.item())
-            
-            _, predicted = outputs.max(1)
-            total += targets.size(0)
-            correct += predicted.eq(targets).sum().item()
-            accuracy = 100.*correct/total
-                 
-        progress_bar(batch_idx, len(testloader), 'Loss: %.3f | Acc: %.3f%%'
-                     % (test_loss/(batch_idx+1), accuracy))
-          
-    activs = [np.concatenate(list(zip(*activation_acc))[i]) for i in range(len(activation_acc[0]))]
-    
-    return (activs, np.concatenate(target_acc), np.asarray(loss_acc), accuracy)
-'''
