@@ -10,6 +10,9 @@ samples that return a single loader.
 import torchvision.transforms as transforms
 import torch
 import torchvision
+from torch.utils.data import *
+import random
+import numpy as np
 
 
 TRANSFORMS_TR_CIFAR10 = transforms.Compose([
@@ -19,7 +22,21 @@ TRANSFORMS_TR_CIFAR10 = transforms.Compose([
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
 
+TRANSFORMS_TR_CIFAR10_GRAY = transforms.Compose([
+    transforms.Grayscale(1),
+    transforms.RandomCrop(32, padding=4),
+    transforms.RandomHorizontalFlip(),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
 TRANSFORMS_TE_CIFAR10 = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+TRANSFORMS_TE_CIFAR10_GRAY = transforms.Compose([
+    transforms.Grayscale(1),
     transforms.ToTensor(),
     transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 ])
@@ -48,31 +65,36 @@ TRANSFORMS_MNIST = transforms.Compose([
     transforms.Normalize((0.1307,), (0.3081,))])
 
 
-def loader(data, batch_size, subset=[]):
+def loader(data, batch_size, subset=[], sampling=-1):
     ''' Interface to the dataloader function '''
     if data == 'mnist_train':
-        return dataloader('mnist', './data', train=True, transform=TRANSFORMS_MNIST, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('mnist', './data', train=True, transform=TRANSFORMS_MNIST, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'mnist_test':
-        return dataloader('mnist', './data', train=False, transform=TRANSFORMS_MNIST, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('mnist', './data', train=False, transform=TRANSFORMS_MNIST, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'cifar10_train':
-        return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
+    elif data == 'cifar10_gray_train':
+        return dataloader('cifar10', './data', train=True, transform=TRANSFORMS_TR_CIFAR10_GRAY, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'cifar10_test':
-        return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, sampling=sampling , num_workers=2, subset=subset)
+    elif data == 'cifar10_gray_test':
+        return dataloader('cifar10', './data', train=False, transform=TRANSFORMS_TE_CIFAR10_GRAY, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'lenet_mnist_adversarial_test':
         return dataloader('/data/data1/datasets/lenet_mnist_adversarial/', train=False,
-                          transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+                          transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'lenet_cifar10_adversarial_test':
         return dataloader('/data/data1/datasets/lenet_cifar_adversarial/', train=False,
-                          transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+                          transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'vgg_cifar10_adversarial_test':
-        return dataloader('vgg_cifar10_adversarial', '/data/data1/datasets/vgg_cifar_adversarial/', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+        return dataloader('vgg_cifar10_adversarial', '/data/data1/datasets/vgg_cifar_adversarial/', train=False, transform=TRANSFORMS_TE_CIFAR10, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'imagenet_train':
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/train/',
-                                 train=True, transform=TRANSFORMS_TR_IMAGENET, batch_size=batch_size, shuffle=True, num_workers=2, subset=subset)
+                                 train=True, transform=TRANSFORMS_TR_IMAGENET, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
     elif data == 'imagenet_test':
         return dataloader('tinyimagenet', '/data/data1/datasets/tiny-imagenet-200/val/images/',
-                                 train=False, transform=TRANSFORMS_TE_IMAGENET, batch_size=batch_size, shuffle=False, num_workers=2, subset=subset)
+                                 train=False, transform=TRANSFORMS_TE_IMAGENET, batch_size=batch_size, sampling=sampling, num_workers=2, subset=subset)
 
+    
 def get_dataset(data, path, train, transform):
     ''' Return loader for torchvision data. If data in [mnist, cifar] torchvision.datasets has built-in loaders else load from ImageFolder '''
     if data == 'mnist':
@@ -85,67 +107,60 @@ def get_dataset(data, path, train, transform):
     return dataset
 
 
-def dataloader(data, path, train, transform, batch_size, shuffle, num_workers, subset=[]):
+def dataloader(data, path, train, transform, batch_size, num_workers, subset=[], sampling=-1):
     dataset = get_dataset(data, path, train, transform)
+        
     if subset:
         dataset = torch.utils.data.Subset(dataset, subset)
 
-    return torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, drop_last=True)
+    if sampling == -1:
+        sampler = SequentialSampler(dataset)
+    elif sampling == -2:
+        sampler = RandomSampler(dataset)
+    else:
+        sampler = BinarySampler(dataset, sampling)
+
+    return torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers, drop_last=True)
 
 
-'''
-def mnist_adversarial():
-    dataset = torchvision.datasets.ImageFolder(root='/data/data1/datasets/lenet_mnist_adversarial/', transform=TRANSFORM_MNIST_ADV)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=100, shuffle=False, num_workers=2)
+class BinarySampler(Sampler):
+    """One-vs-rest sampling where pivot indicates the target class """
 
-    return loader
-
-
-def cifar_adversarial():
-    dataset = torchvision.datasets.ImageFolder(root='/data/data1/datasets/cifar_adversarial/', transform=TRANSFORMS_TE_CIFAR10)
-    loader = torch.utils.data.DataLoader(dataset, batch_size=100, shuffle=False, num_workers=2)
-
-    return loader
+    def __init__(self, dataset, pivot):
+        self.dataset = dataset
+        self.pivot_indices = self._get_pivot_indices(pivot)
+        self.nonpivot_indices = self._get_nonpivot_indices()
+        self.indices = self._get_indices()
     
+    def _get_targets(self):
+        return [x for (_, x) in self.dataset]
 
-def mnist():
-    print('===> Preparing data...')
+    def _get_pivot_indices(self, pivot):
+        return [i for i, x in enumerate(self._get_targets()) if x==pivot]
+
+    def _get_nonpivot_indices(self):
+        return random.sample(list(set(np.arange(len(self.dataset)))-set(self.pivot_indices)), len(self.pivot_indices))
+
+    def _get_indices(self):
+        return self.pivot_indices + self.nonpivot_indices
+
+    def __iter__(self):
+        return (self.indices[i] for i in torch.randperm(len(self.indices)))
+        
+    def __len__(self):
+        return len(self.indices)
+
+        
+if __name__=='__main__':
+    dataset = torchvision.datasets.MNIST('./', download=True, transform=TRANSFORMS_MNIST)
+    sampler = BinarySampler(dataset, 3)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, sampler=sampler, num_workers=2, drop_last=True)
     
-    trainset = torchvision.datasets.MNIST('../data', train=True, download=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=False, num_workers=2)
-
-    testset = torchvision.datasets.MNIST('../data', train=False, download=True, transform=transform_test)  
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-
-    return trainloader, testloader
+    for i, (x, y) in enumerate(dataloader):
+        print('{}:{}'.format(i, y))
 
 
-def cifar10():
-    print('===> Preparing data...')
-
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True, download=True, transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
-
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False, download=True, transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-
-    classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
-    return trainloader, testloader
-
-
-def tinyimagenet(input_size=32):
-    print('==> Preparing data...')
-
-    trainset = torchvision.datasets.ImageFolder(root='/data/data1/datasets/tiny-imagenet-200/train/', transform=transform_train)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=True, num_workers=2)
-    
-    testset = torchvision.datasets.ImageFolder(root='/data/data1/datasets/tiny-imagenet-200/val/images/', transform=transform_test)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=2)
-
-    return trainloader, testloader
-'''
-
+''' Is it still useful or remove? '''
 def validation_imagenet(data_dir, validation_labels_file):
     ''' What was this for? Is it used? '''
 
