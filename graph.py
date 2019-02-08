@@ -56,6 +56,14 @@ def adjacency_correlation(signals):
     return np.nan_to_num(np.corrcoef(signals))
 
 
+def adjacency_l2(signal):
+    ''' In this case signal is an 1XN array not a time series. 
+    Builds adjacency based on L2 norm between node activations.
+    '''
+    x = np.tile(signal, (signal.size, 1))
+    return np.sqrt((signal - signal.transpose())**2)
+
+
 def binarize(M, binarize_t):
     ''' Binarize matrix. Real subunitary values. '''
     M[M>binarize_t] = 1
@@ -91,16 +99,26 @@ def adjacency(signals, metric=None):
         for j in range(n):
             A[i,j] = metric(signals[i], np.transpose(signals[j]))
 
-    ''' Scale (values btw 0 and 1). TO ADD: considery robust normalization!'''
-    A = scale(A)
+    ''' Normalize '''
+    A = robust_scaler(A)
             
     return np.abs(np.nan_to_num(A))
 
 
-def scale(A):
-    A = A - A.min()
-    A = A/np.abs(A.max())
+def minmax_scaler(A):
+    A = (A - A.min())/A.max()
     return A
+
+
+def standard_scaler(A):
+    return  np.abs((A - np.mean(A))/np.std(A))
+
+
+def robust_scaler(A, quantiles=[0.05, 0.95]):
+    a = np.quantile(A, quantiles[0])
+    b = np.quantile(A, quantiles[1])
+
+    return (A-a)/(b-a)
 
 
 def signal_splitting(signals, sz_chunk):
@@ -116,6 +134,7 @@ def signal_splitting(signals, sz_chunk):
             splits.append([np.transpose(s)])
         
     return splits
+
 
 def signal_dimension_adjusting(signals, sz_chunk):
     splits = []
@@ -144,7 +163,7 @@ def adjacency_correlation_distribution(splits, metric):
     ''' Compute correlation pdfs per split '''
     corrpdfs = [corrpdf(x) for layer in splits for x in layer]
     
-    ''' Compute adjacency (Kullbach-Liebler metric) matrix'''
+    ''' Compute adjacency matrix'''
     A = adjacency(np.asarray(corrpdfs), metric=metric)
     
     return A
