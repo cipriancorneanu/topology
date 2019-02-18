@@ -80,12 +80,6 @@ def adjacency(signals, metric=None):
     '''
     
     ''' Get input dimensions '''
-    '''
-    shape0,shape1 = signals.shape
-    if shape0<1000 or shape1>1000 and shape0>shape1:
-        signals = np.reshape(signals, (signals.shape[1], -1))
-    else:
-    '''
     signals = np.reshape(signals, (signals.shape[0], -1))
 
     ''' If no metric provided fast-compute correlation  '''
@@ -117,7 +111,6 @@ def standard_scaler(A):
 def robust_scaler(A, quantiles=[0.05, 0.95]):
     a = np.quantile(A, quantiles[0])
     b = np.quantile(A, quantiles[1])
-
     return (A-a)/(b-a)
 
 
