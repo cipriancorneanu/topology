@@ -15,3 +15,5 @@ densities/
 outputs/
 deepfool_dataset/
 models/__pycache__/
+raw/
+processed/
