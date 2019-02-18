@@ -150,17 +150,19 @@ class BinarySampler(Sampler):
     def __len__(self):
         return len(self.indices)
 
-        
+'''
+If not useful remove on next commit 
 if __name__=='__main__':
     dataset = torchvision.datasets.MNIST('./', download=True, transform=TRANSFORMS_MNIST)
-    sampler = BinarySampler(dataset, 3)
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size=16, sampler=sampler, num_workers=2, drop_last=True)
+    sampler = BinarySampler(dataset, 3)    
+    dataloader = loader(data='mnist_test', batch_size=1, sampling=3)
     
     for i, (x, y) in enumerate(dataloader):
         print('{}:{}'.format(i, y))
+'''
 
-
-''' Is it still useful or remove? '''
+''' If still not useful remove on next commit! '''
+'''
 def validation_imagenet(data_dir, validation_labels_file):
     ''' What was this for? Is it used? '''
 
@@ -193,3 +195,4 @@ def validation_imagenet(data_dir, validation_labels_file):
             sys.exit(-1)
         new_filename = os.path.join(data_dir, labels[i], basename)    
         os.rename(original_filename, new_filename)
+'''
