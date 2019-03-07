@@ -32,6 +32,8 @@ def get_model(name, dataset):
         net = LeNet(num_classes=200)
     if name=='lenetbin':
         net = LeNet(num_classes=2)
+    if name=='lenet32bin':
+        net = LeNet(num_classes=2, input_size=32)
     if name=='lenet32' and dataset in ['mnist', 'cifar10_gray', 'mnist_adversarial']:
         net = LeNet(num_classes=10, input_size=32)
     if name=='lenet32bin':
