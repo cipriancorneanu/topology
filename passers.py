@@ -58,6 +58,20 @@ class Passer():
                 return self._pass(manipulator=manipulator)
 
             
+    def get_predictions(self, manipulator=identity):
+        ''' Returns predictions and targets '''
+        preds, gts, = [], []
+        for batch_idx, (inputs, targets) in enumerate(self.loader):
+            targets = manipulator(targets)
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            outputs = self.network(inputs)
+                
+            gts.append(targets.cpu().data.numpy())
+            preds.append(outputs.cpu().data.numpy().argmax(1))
+            
+        return np.concatenate(gts), np.concatenate(preds)
+
+            
     def get_function(self):
         ''' Collect function (features) from the self.network.module.forward_features() routine '''
         features = []
@@ -71,6 +85,7 @@ class Passer():
 
         return [np.concatenate(list(zip(*features))[i]) for i in range(len(features[0]))]
 
+    
     def get_structure(self):
         ''' Collect structure (weights) from the self.network.module.forward_weights() routine '''
         # modified #
