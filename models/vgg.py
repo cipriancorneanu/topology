@@ -1,7 +1,8 @@
 '''VGG11/13/16/19 in Pytorch.'''
 import torch
 import torch.nn as nn
-
+import numpy as np
+import itertools
 
 cfg = {
     'VGG11': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
@@ -32,6 +33,10 @@ class VGG(nn.Module):
         return [self.features[:l+1](x) for l in layers] + [self.forward(x)]
 
     
+    def forward_all_features(self, x):
+        return [self.features[:l+1](x) for l in range(45)] + [self.forward(x)]
+
+    
     def _make_layers(self, cfg):
         layers = []
         in_channels = 3
@@ -47,20 +52,25 @@ class VGG(nn.Module):
         layers += [nn.AvgPool2d(kernel_size=1, stride=1)]
         return nn.Sequential(*layers)
 
+    
+    def get_layers(self):
+        layers = list(self.features.children())
+        layers.append(self.classifier)
+        return layers
+        
+        
 def test():
     vgg11 = VGG('VGG11')
     vgg16 = VGG('VGG16')
-    
-    x = torch.randn(22,3,32,32)
-
-    print(vgg11)
-    for f in vgg11.forward_features(x):
-        print(f.size())
-        
-    print(20*'_')
 
     print(vgg16)
-    for f in vgg16.forward_features(x):
-        print(f.size())
-        
-'''test()'''
+    x = torch.zeros([1,3,32,32])
+    
+    n_nodes = get_node_number(vgg16, x)
+    print('Number of nodes in the network is {}'.format(n_nodes))
+
+    ''' Build structure from model'''
+    A = structure_from_view(vgg16, x, list(range(33, 44)))
+    print(A.shape)
+    
+test()
