@@ -64,7 +64,7 @@ class LeNetExt(nn.Module):
 
     
 def test():
-    net = LeNet()
+    net = LeNet(num_classes=10)
     print(net)
     x = torch.randn(1,1,28,28)
     y = net(x)
