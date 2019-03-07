@@ -30,7 +30,7 @@ parser.add_argument('--input_size', default=32, type=int)
 parser.add_argument('--thresholds', nargs='+', type=float)
 parser.add_argument('--permute_labels', default=0, type=float)
 parser.add_argument('--binarize_labels', default=-1, type=int)
-
+parser.add_argument('--select_nodes', default=0, type=int)
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -62,6 +62,26 @@ elif args.dataset in ['mnist', 'mnist_adverarial']:
 
 ''' Define label manipulator '''
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
+
+''' Instead of building graph on the entire set of nodes, pick a subset '''
+if args.select_nodes:
+    ''' get activations '''
+    subsettestloader = loader(args.dataset+'_train',  batch_size=100, sampling=args.binarize_labels)
+    passer = Passer(net, subsettestloader, criterion, device)
+    manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
+
+    activs = passer.get_function()
+    activs = signal_concat(activs)
+
+    ''' get correct and wrong predictions '''
+    gts, preds = passer.get_predictions(manipulator=manipulator)    
+    labels = [int(x) for x in gts==preds]
+
+    ''' compute discriminative nodes '''
+    nodes = np.concatenate(get_discriminative_nodes(np.transpose(activs), labels, 0.1))
+else:
+    nodes = np.arange(0, len(activs))
+
     
 for epoch in args.epochs:
     print('==> Loading checkpoint for epoch {}...'.format(epoch))
@@ -70,10 +90,11 @@ for epoch in args.epochs:
     net.load_state_dict(checkpoint['net'])
     
     ''' Functional graph per sample'''
-    loader = loader(args.dataset+'_test', batch_size=1, sampling=args.binarize_labels)
-    passer = Passer(net, loader, criterion, device)
-
-    for sample, (inputs, targets) in enumerate(loader):
+    dataloader = loader(args.dataset+'_test', batch_size=1, sampling=args.binarize_labels)
+    passer = Passer(net, dataloader, criterion, device)
+    preds, gts = [], []
+    
+    for sample, (inputs, targets) in enumerate(dataloader):
         if sample >= args.n_samples: break
         
         targets = manipulator(targets)
@@ -81,24 +102,19 @@ for epoch in args.epochs:
         outputs = net(inputs)
         accuracy = get_accuracy(outputs, targets)
         
+        preds.append(outputs.cpu().data.numpy().argmax(1))
+        gts.append(targets.cpu().data.numpy())
+   
         print('Computing functional graph for sample {}/{} -- Acc: {:1.2f}'.format(sample, args.n_samples, accuracy))
 
-        activs = [f.cpu().data.numpy().astype(np.float16) for f in net.module.forward_features(inputs)]
-        
-        for a in activs:
-            print(a.shape)
-        
-        activs = signal_concat(activs)
+        activs = signal_concat([f.cpu().data.numpy().astype(np.float16) for f in net.module.forward_features(inputs)])[nodes]
         adj = adjacency_l2(activs)
-
-        print(adj.shape)
-        print(np.min(adj), np.median(adj), np.max(adj))
-
         adj = robust_scaler(adj, quantiles=[0.0, 1.0])
 
-        print(adj.shape)
-        print(np.min(adj), np.median(adj), np.max(adj))
-        
         for threshold in args.thresholds:
             badj = binarize(np.copy(adj), threshold)
             np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}_sample{}.csv'.format(epoch, threshold, args.trial, sample), badj, fmt='%d', delimiter=",")
+
+    ''' Save labels '''
+    lbls = [int(x) for x in np.concatenate(preds) == np.concatenate(gts)]
+    np.save(SAVE_DIR+'lbls_epc{}_trl{}'.format(epoch, args.trial), lbls)

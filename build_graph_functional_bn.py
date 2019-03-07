@@ -71,7 +71,7 @@ for epoch in args.epochs:
     net.load_state_dict(checkpoint['net'])
     
     ''' Define passer and get activations '''
-    functloader = loader(args.dataset+'_test',  subset=list(range(0, 1000)))
+    functloader = loader(args.dataset+'_test', batch_size=100, subset=list(range(0, 1000)))
     passer = Passer(net, functloader, criterion, device)
     passer_test = Passer(net, functloader, criterion, device)
     passer_test.run(manipulator=manipulator)
@@ -81,5 +81,7 @@ for epoch in args.epochs:
     adj = adjacency_correlation_distribution(splits, metric=js)
     print('The dimension of the adjacency matrix is {}'.format(adj.shape))
     print('Adj mean {}, min {}, max {}'.format(np.mean(adj), np.min(adj), np.max(adj)))
+
     for threshold in args.thresholds:
-        np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), adj, fmt='%d', delimiter=",")
+        badj = binarize(np.copy(adj), threshold)
+        np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), badj, fmt='%d', delimiter=",")
