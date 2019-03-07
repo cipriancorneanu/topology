@@ -19,6 +19,7 @@ parser.add_argument('--split',  default='0', help='Split layers into chunks.')
 parser.add_argument('--kl', default='0', help='TO ADD.')
 parser.add_argument('--graph_type', default='functional')
 parser.add_argument('--n_samples', type=int, default=5)
+parser.add_argument('--select_nodes', default='0')
 args = parser.parse_args()
 
 ''' Create thresholds argument '''
@@ -38,13 +39,14 @@ if args.train:
     visible_print('Training network')
     os.system('python ../train.py --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.n_epochs_train+' --lr '+args.lr+' --permute_labels '+args.permute_labels+' --subset '+args.data_subset+' --binarize_labels '+args.binarize_labels)
 
+
 visible_print('Building '+args.graph_type+' graph')
 if args.graph_type=='functional':
     os.system('python ../build_graph_functional.py --save_path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --split '+args.split+' --kl '+args.kl+' --permute_labels '+args.permute_labels+' --binarize_labels '+args.binarize_labels)
 elif args.graph_type=='functional_bn':
     os.system('python ../build_graph_functional_bn.py --save_path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --split '+args.split+' --kl '+args.kl+' --permute_labels '+args.permute_labels+' --binarize_labels '+args.binarize_labels)
 elif args.graph_type=='functional_persample':
-    os.system('python ../build_graph_functional_persample.py --save_path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --permute_labels '+args.permute_labels+' --binarize_labels '+args.binarize_labels+' --n_samples '+str(args.n_samples))
+    os.system('python ../build_graph_functional_persample.py --save_path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --permute_labels '+args.permute_labels+' --binarize_labels '+args.binarize_labels+' --n_samples '+str(args.n_samples)+' --select_nodes '+args.select_nodes)
 
     
 visible_print('Computing topology')
@@ -55,8 +57,8 @@ else:
     os.system('python compute_topology.py --save_path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --trial '+ args.trial)
 
 visible_print('Prepare topology results')
-if args.graph_type=='functional_per_sample':
-    os.system('python prepare_results.py --path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --permute_labels '+args.permute_labels+' --subset '+args.data_subset)
-else:
+if args.graph_type=='functional_persample':
     for sample in range(args.n_samples):
-        os.system('python prepare_results_persample.py --path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --permute_labels '+args.permute_labels+' --subset '+args.data_subset +' --sample ' + str(sample))
+        os.system('python prepare_results_persample.py --path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --permute_labels '+args.permute_labels+' --subset '+args.data_subset + ' --sample ' + str(sample))
+else:
+    os.system('python prepare_results.py --path '+SAVE_PATH+' --net '+args.net+' --dataset '+args.dataset+' --trial '+args.trial+' --epochs '+args.epochs_test+' --thresholds '+thresholds+' --permute_labels '+args.permute_labels+' --subset '+args.data_subset+' --split '+args.split)
