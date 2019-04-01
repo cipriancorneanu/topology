@@ -105,7 +105,8 @@ class ResNet(nn.Module):
         x6 = F.avg_pool2d(x5, 4)
         x7 = x6.view(x6.size(0), -1)
         out = self.linear(x7)
-        return [x1, x2, x3, x4, x5, x6, x7, out]        
+        '''return [x1, x2, x3, x4, x5, x6, x7, out]'''
+        return [x4, x5, x6, x7, out]        
 
     
 def ResNet18(num_classes=10):

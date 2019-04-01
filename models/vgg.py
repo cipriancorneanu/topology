@@ -12,13 +12,18 @@ cfg = {
     }
 
 
+'''
+if self.name == 'VGG11': layers = [3, 7, 10, 14, 17, 21, 24, 27, 29]
+if self.name == 'VGG16': layers = [2, 6, 9, 13, 16, 19, 23, 26, 29, 33, 36, 39, 44]
+if self.name == 'VGG16': layers = [19, 23, 26, 29, 33, 36, 39, 44]
+'''
+        
 class VGG(nn.Module):
     def __init__(self, vgg_name, num_classes=10):
         super(VGG, self).__init__()
         self.name = vgg_name
         self.features = self._make_layers(cfg[vgg_name])
         self.classifier = nn.Linear(512, num_classes)
-
         
     def forward(self, x):
         out = self.features(x)
@@ -26,17 +31,13 @@ class VGG(nn.Module):
         out = self.classifier(out)
         return out
 
-
     def forward_features(self, x):
-        if self.name == 'VGG11': layers = [3, 7, 10, 14, 17, 21, 24, 27, 29]
         if self.name == 'VGG16': layers = [2, 6, 9, 13, 16, 19, 23, 26, 29, 33, 36, 39, 44]
-        return [self.features[:l+1](x) for l in layers] + [self.forward(x)]
-
-    
+        return [self.features[:l+1](x) for l in layers[3::2]] + [self.forward(x)]
+        
     def forward_all_features(self, x):
         return [self.features[:l+1](x) for l in range(45)] + [self.forward(x)]
 
-    
     def _make_layers(self, cfg):
         layers = []
         in_channels = 3
@@ -53,24 +54,16 @@ class VGG(nn.Module):
         return nn.Sequential(*layers)
 
     
-    def get_layers(self):
-        layers = list(self.features.children())
-        layers.append(self.classifier)
-        return layers
-        
-        
 def test():
     vgg11 = VGG('VGG11')
     vgg16 = VGG('VGG16')
 
     print(vgg16)
     x = torch.zeros([1,3,32,32])
-    
-    n_nodes = get_node_number(vgg16, x)
-    print('Number of nodes in the network is {}'.format(n_nodes))
 
-    ''' Build structure from model'''
-    A = structure_from_view(vgg16, x, list(range(33, 44)))
-    print(A.shape)
-    
-test()
+    feats = vgg16.forward_all_features(x)
+
+    for i,f in enumerate(feats):
+        print('{}:{}'.format(i, np.prod(f.shape)))
+        
+'''test()'''
