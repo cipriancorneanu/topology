@@ -17,3 +17,6 @@ deepfool_dataset/
 models/__pycache__/
 raw/
 processed/
+dipha/
+gudhi/
+phat/
