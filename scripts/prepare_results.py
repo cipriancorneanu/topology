@@ -23,11 +23,11 @@ bettis = {}
 for e in args.epochs:
     epoch = {}
     for t in thresholds:
-        fname = path + 'badj_epc{}_t{:1.2f}_trl{}.csv_symmetric_bettis.txt'.format(e, t, args.trial)
-        epoch['t_{:1.2f}'.format(t)] = compile_bettis(fname, n_bettis=3)
+        fname = path + 'badj_epc{}_t{:1.4f}_trl{}.csv_symmetric_bettis.txt'.format(e, t, args.trial)
+        epoch['t_{:1.4f}'.format(t)] = compile_bettis(fname, n_bettis=3)
 
-    measure = betti_integral(epoch, min(thresholds), max(thresholds))
-    bettis['epc_{}'.format(e)] = (epoch, measure)
+    '''measure = betti_integral(epoch, min(thresholds), max(thresholds))'''
+    bettis['epc_{}'.format(e)] = epoch
 
 ''' Save bettis '''
 with open(path + 'bettis_trl{}_p{}_s{}_split{}.pkl'.format(args.trial, args.permute_labels, args.subset, args.split), "wb") as f:
