@@ -9,10 +9,13 @@ import os
 import pickle as pkl
 import scipy.stats
 from sklearn import preprocessing 
-
+import time
+import pymetis
+import itertools    
 
 def correlation(x, y):
     return np.corrcoef(x,y)[0,1]
+
 
 def kl(x, y):
     ''' 
@@ -24,6 +27,7 @@ def kl(x, y):
     y[y==0]=0.00001
     return scipy.stats.entropy(x, y)
 
+
 def js(x, y):
     '''
     Return Jensen-Shannon divegence btw two probability density functions
@@ -31,7 +35,8 @@ def js(x, y):
     '''
 
     return 0.5*kl(x,y) + 0.5*kl(y,x)
-    
+
+
 def corrpdf(signals):
     '''
     Compute pdf of correlations between signals
@@ -53,7 +58,7 @@ def corrpdf(signals):
 def adjacency_correlation(signals):
     ''' Faster version of adjacency matrix with correlation metric '''
     signals = np.reshape(signals, (signals.shape[0], -1))
-    return np.nan_to_num(np.corrcoef(signals))
+    return np.abs(np.nan_to_num(np.corrcoef(signals)))
 
 
 def adjacency_l2(signal):
@@ -84,7 +89,7 @@ def adjacency(signals, metric=None):
 
     ''' If no metric provided fast-compute correlation  '''
     if not metric:
-        return np.nan_to_num(np.corrcoef(signals))
+        return np.abs(np.nan_to_num(np.corrcoef(signals)))
         
     n, m = signals.shape
     A = np.zeros((n, n))
@@ -112,6 +117,27 @@ def robust_scaler(A, quantiles=[0.05, 0.95]):
     a = np.quantile(A, quantiles[0])
     b = np.quantile(A, quantiles[1])
     return (A-a)/(b-a)
+
+
+def adj2list(adj):
+    return [[i for i,x in enumerate(row) if x == 1] for row in adj]
+
+
+def signal_partition(signals, n_part=100, binarize_t=.5):
+    signals = signal_concat(signals)
+    print('Inside signal_partition signal concat shape is {}'.format(signals.shape))
+    
+    adj = adjacency_correlation(signals)
+    badj = binarize(np.copy(adj), binarize_t)
+
+    start = time.time()
+    partition = pymetis.part_graph(n_part, adj2list(badj))[1]
+    print('PyMetis Partition finished! in {} secs'.format(time.time()-start))
+
+    node_splits = [[i for i, p in enumerate(partition) if p == val] for val in range(n_part)]
+    splits = [[signals[indices, :] for indices in node_splits]]
+   
+    return splits
 
 
 def signal_splitting(signals, sz_chunk):
@@ -149,6 +175,12 @@ def signal_concat(signals):
     return np.concatenate([np.transpose(x.reshape(x.shape[0], -1)) for x in signals], axis=0)
 
 
+def adjacency_set_correlation(splits):            
+    set_averages = np.asarray([np.mean(x, axis=0) for layer in splits for x in layer])
+    A = adjacency_correlation(set_averages)
+    
+    return A
+
 def adjacency_correlation_distribution(splits, metric):            
     ''' Get correlation distribution for each split and build adjacency matrix between
     set of chunks using metric between distributions. '''
@@ -162,30 +194,22 @@ def adjacency_correlation_distribution(splits, metric):
     return robust_scaler(A)
 
 
-def build_density_adjacency(activs, density_t):
-    nodes = np.concatenate([np.transpose(a.reshape(a.shape[0], -1)) for a in activs], axis=0)
-
-    ''' Compute correlation matrix '''
-    corr = np.nan_to_num(np.corrcoef(nodes))
-    total_edges = np.prod(corr.shape)
-    
-    
+def build_density_adjacency(adj, density_t):
     ''' Binarize matrix '''
-    t, t_decr = 1, 0.005
+    total_edges = np.prod(adj.shape)
+    t, t_decr = 1, 0.001
     while True:
         ''' Decrease threshold until density is met '''
-        edges = np.sum(corr > t)
+        edges = np.sum(adj > t)
         density = edges/total_edges
-        ''' print('Threhold: {}; Density:{}'.format(t, density))'''
+        '''print('Threhold: {}; Density:{}'.format(t, density))'''
         
         if density > density_t:
-            corr[corr > t] = 1
-            corr[corr <= t] = 0
             break
 
         t = t-t_decr
         
-    return corr, density, t
+    return t
 
 
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
@@ -316,31 +340,33 @@ def get_node_number(model, x):
     ''' Get total number of nodes of model for a specific input '''
     return np.sum([np.prod(np.asarray(x.shape)) for x in model.forward_all_features(x)])
 
+def get_features(model, x, view):
+    print(x.shape)
+    feats = model.forward_all_features(x)
+    print(len(feats))
+    return [feats[i] for i in view]
+    
+def get_operations(model, view):
+    layers = list(model.features.children())
+    layers.append(model.classifier)
+    return [layers[i] for i in view]
 
-def get_model_view(model, x, view):
-    ''' 
-    Given a model, an input and a list of layers returns 
-    the corresponding set of operations and tensors. Operations 
-    that do not have structure  (e.g Relu, BatchNorm) are ignored 
-    '''
-    layers = [layer for layer in [model.get_layers()[i] for i in view]
-              if type(layer).__name__ in ['Conv2d', 'MaxPool2d', 'Linear']]
-    print('All layers: {}. View layers indices: {}. Layers with structure: {}'.format(len(model.get_layers()), view, len(layers)))
-
-    tensors = [tensor for tensor in [model.forward_all_features(x)[i] for i in [view[0]-1]+view+[view[-1]+1]
-                                     if type(model.get_layers()[i]).__name__ in ['Conv2d', 'MaxPool2d', 'Linear']]]    
-    print('There are {} tensors in the model'.format(len(tensors)))
-
+def get_view(model, x):
+    VIEW_VGG16 = {'ops': [24, 27, 30, 33],
+                  'feats': [23, 26, 29, 32, 33]}
+    tensors = get_features(model, x, VIEW_VGG16['feats'])
+    layers = get_operations(model, VIEW_VGG16['ops'])
+    
     return layers, tensors
 
 
-def structure_from_view(model, x, view):
+def structure_from_view(model, x):
     '''
-    Given a model (neural network), an input x <tensor> and a view <list of integers>
-    return adjacency matrix that defines a graph correspoding to the structure 
-    of the model.
+    Given a model (neural network), and an input x <tensor>
+    return adjacency matrix that defines a graph correspoding
+    to the structure of the model.
     '''
-    layers, tensors = get_model_view(model, x, view)
+    layers, tensors = get_view(model, x)
     n_nodes = [np.prod(x.shape) for x in tensors]
     print('There are {} nodes in the considered view of the model'.format(np.sum(n_nodes)))
     A = np.zeros((np.sum(n_nodes), np.sum(n_nodes)))
@@ -363,9 +389,9 @@ def structure_from_view(model, x, view):
         
         ''' Fill structure '''        
         acc_n_nodes = [int(np.sum(n_nodes[:i])) for i in range(len(n_nodes)+1)]
-        print(acc_n_nodes)
+        '''print(acc_n_nodes)'''
         start_in, end_in, start_out, end_out = acc_n_nodes[i], acc_n_nodes[i+1], acc_n_nodes[i+1], acc_n_nodes[i+2]
-        print(start_in, end_in, start_out, end_out)
+        '''print(start_in, end_in, start_out, end_out)'''
         print('A.shape={}, a.shape={}'.format(A.shape, a.shape))
         A[start_in:end_in, start_out:end_out] = a
         
