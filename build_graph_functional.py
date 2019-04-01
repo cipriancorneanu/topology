@@ -79,7 +79,25 @@ for epoch in args.epochs:
     activs = passer.get_function()
     activs = signal_concat(activs)
     adj = adjacency(activs)
+
+    adj = adjacency(activs)
+    print('The dimension of the adjacency matrix is {}'.format(adj.shape))
+    print('Adj mean {}, min {}, max {}'.format(np.mean(adj), np.min(adj), np.max(adj)))
+
+    ''' Compute thresholds in density '''
+    edge_t = [build_density_adjacency(adj, t) for t in args.thresholds]
+    print('The edge thresholds correspoding to required densities are: {}'.format(edge_t))
+    
+    for et, dt in zip(edge_t, args.thresholds):
+        badj = binarize(np.copy(adj), et)
+        '''print('Taking T={}, density={}'.format(et, np.sum(badj)/np.prod(adj.shape)))'''
+        print(np.sum(badj))
+        np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.4f}_trl{}.csv'.format(epoch, dt, args.trial), badj, fmt='%d', delimiter=",")
+
+    '''
+    print('Size of adjacency matrix is {}'.format(adj.shape))
             
     for threshold in args.thresholds:
         badj = binarize(np.copy(adj), threshold)
-        np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, args.trial), badj, fmt='%d', delimiter=",")
+        np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.4f}_trl{}.csv'.format(epoch, threshold, args.trial), badj, fmt='%d', delimiter=",")
+    '''
