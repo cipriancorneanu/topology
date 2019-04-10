@@ -75,18 +75,15 @@ for epoch in args.epochs:
     functloader = loader(args.dataset+'_test', batch_size=100, subset=list(range(0, 1000)))
     passer = Passer(net, functloader, criterion, device)
     passer_test = Passer(net, functloader, criterion, device)
- 
     passer_test.run(manipulator=manipulator)
     activs = passer.get_function()
     activs = signal_concat(activs)
-    adj = adjacency(activs)
-
     adj = adjacency(activs)
     print('The dimension of the adjacency matrix is {}'.format(adj.shape))
     print('Adj mean {}, min {}, max {}'.format(np.mean(adj), np.min(adj), np.max(adj)))
 
     ''' Write adjacency to binary. To use as DIPHA input for persistence homology '''
-    save_dipha(SAVE_DIR + 'adj_epc{}_trl{}.bin'.format(epoch, args.trial), adj)
+    save_dipha(SAVE_DIR + 'adj_epc{}_trl{}.bin'.format(epoch, args.trial), 1-adj)
 
     ''' Compute thresholds. If nominal, use args.thresholds directly, if density, compute nominal correspoding to edge densitites first. For static homology. '''
     if args.filtration == 'density':
