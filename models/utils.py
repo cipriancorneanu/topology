@@ -26,6 +26,8 @@ def get_model(name, dataset):
 '''
 
 def get_model(name, dataset):
+    if name=='lenet_300_100' and dataset in ['mnist', 'cifar10']:
+        net = LeNet_300_100(num_classes=10)
     if name=='lenet' and dataset in ['mnist', 'cifar10', 'mnist_adversarial']:
         net = LeNet(num_classes=10)
     if name=='lenet' and dataset == 'imagenet':
