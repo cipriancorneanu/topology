@@ -60,7 +60,7 @@ if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
-''' Initialize weights from checkpoint'''
+''' Initialize weights from checkpoint '''
 if args.resume:
     net, best_acc, start_acc = init_from_checkpoint(net)
   
@@ -80,7 +80,8 @@ passer_test = Passer(net, testloader, criterion, device)
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
 
 ''' Make intial pass before any training '''
-loss_te, acc_te = passer_test.run(manipulator=manipulator)
+
+loss_te, acc_te = passer_test.run()
 save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/'+ONAME, fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
 
 losses = []
@@ -88,7 +89,7 @@ for epoch in range(start_epoch, start_epoch+args.epochs):
     print('Epoch {}'.format(epoch))
 
     loss_tr, acc_tr = passer_train.run(optimizer, manipulator=manipulator)
-    loss_te, acc_te = passer_test.run(manipulator=manipulator)
+    loss_te, acc_te = passer_test.run()
    
     losses.append({'loss_tr':loss_tr, 'loss_te': loss_te, 'acc_tr': acc_tr, 'acc_te':acc_te})
     lr_scheduler.step(acc_te)
