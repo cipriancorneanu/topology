@@ -69,6 +69,35 @@ elif args.dataset in ['mnist', 'mnist_adverarial']:
 ''' Define label manipulator '''
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
 
+''' Define partitions '''
+print(25*'-')
+print('----Perform partition---')
+print(25*'-')
+print('==> Loading checkpoint for epoch {}...'.format(args.epochs[-1]))
+assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
+checkpoint = torch.load('./checkpoint/'+ args.net + '_' + args.dataset + '/ckpt_trial_' + str(args.trial) + '_epoch_' + str(args.epochs[-1])+'.t7')
+net.load_state_dict(checkpoint['net'])
+    
+''' Define passer and get activations '''
+functloader = loader(args.dataset+'_test', batch_size=100, subset=list(range(0, 1000)))
+passer = Passer(net, functloader, criterion, device)
+passer_test = Passer(net, functloader, criterion, device)
+passer_test.run()
+activs = passer.get_function()
+
+print('activs have shape {}'.format(signal_concat(activs).shape))
+
+start = time.time()
+if args.partition=='hardcoded':
+    splits = signal_splitting(activs, args.split)
+elif args.partition=='dynamic':
+    splits = signal_partition(activs, n_part=args.split, binarize_t=args.thresholds[0])
+    print('Returning from signal_partition in {} secs'.format(time.time()-start))
+elif args.partition=='dynamic_from_structure':
+    sadj = structure_from_view(net.module, torch.zeros(1,3,32,32).cuda())
+    splits = signal_partition(sadj, n_part=args.split, binarize_t=args.thresholds[0])
+
+
 for epoch in args.epochs:
     print('==> Loading checkpoint for epoch {}...'.format(epoch))
     assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
@@ -81,20 +110,8 @@ for epoch in args.epochs:
     passer_test = Passer(net, functloader, criterion, device)
     passer_test.run()
     activs = passer.get_function()
-
     print('activs have shape {}'.format(signal_concat(activs).shape))
     
-    start = time.time()
-    if args.partition=='hardcoded':
-        splits = signal_splitting(activs, args.split)
-    elif args.partition=='dynamic':
-        splits = signal_partition(activs, n_part=args.split, binarize_t=args.thresholds[0])
-        print('Returning from signal_partition in {} secs'.format(time.time()-start))
-    elif args.partition=='dynamic_from_structure':
-        sadj = structure_from_view(net.module, torch.zeros(1,3,32,32).cuda())
-        splits = signal_partition(sadj, n_part=args.split, binarize_t=args.thresholds[0])
-
-    '''adj = adjacency_correlation_distribution(splits, metric=js)'''
     for i, partition in enumerate(splits[0]):
         print(25*'--')
         print('We are computing bettis for partition {}'.format(i))
