@@ -18,6 +18,7 @@ import errno
 import os.path
 import random
 
+
 def get_mean_and_std(dataset):
     '''Compute the mean and std value of dataset.'''
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True, num_workers=2)
@@ -144,3 +145,12 @@ def save_splits(splits, split_size, save_dir, start_layer, epoch, threshold, tri
             print('Saving ... trl{}, epc{}, threshold{:1.2f}, layer{}, chunk{}, shape {}'.format(trial, epoch, threshold, start_layer+i_layer, i_chunk, chunk.shape))
             np.savetxt(path+'badj_epc{}_t{:1.2f}_trl{}.csv'.format(epoch, threshold, trial), chunk, fmt='%d', delimiter=",")
 
+
+def save_dipha(fname, adj):
+    from scripts.config import DIPHA_MAGIC_NUMBER, ID
+    ''' Write adjacency to binary. To use as DIPHA input for persistence homology '''
+    output_file = open(fname, 'wb')
+    np.array(DIPHA_MAGIC_NUMBER, dtype=np.int64).tofile(output_file)
+    np.array(ID, dtype=np.int64).tofile(output_file)
+    np.array(adj.shape[0], dtype=np.int64).tofile(output_file)
+    np.array(adj, dtype=np.double).T.tofile(output_file)            
