@@ -21,6 +21,7 @@ from labels import load_manipulator
 import pymetis
 import time
 
+
 parser = argparse.ArgumentParser(description='PyTorch CIFAR10 Training')
 parser.add_argument('--net')
 parser.add_argument('--dataset')
@@ -32,10 +33,10 @@ parser.add_argument('--subsplit', default=0, type=int)
 parser.add_argument('--kl', default=0, type=int)
 parser.add_argument('--input_size', default=32, type=int)
 parser.add_argument('--thresholds', nargs='+', type=float)
+parser.add_argument('--filtration', default='nominal')
 parser.add_argument('--permute_labels', default=0, type=float)
 parser.add_argument('--binarize_labels', default=-1, type=int)
 parser.add_argument('--partition', default='hardcoded')
-
 args = parser.parse_args()
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -105,10 +106,20 @@ for epoch in args.epochs:
         print('The dimension of the adjacency matrix is {}'.format(adj.shape))
         print('Adj mean {}, min {}, max {}'.format(np.mean(adj), np.min(adj), np.max(adj)))
 
-        ''' Compute thresholds in density '''
-        edge_t = [build_density_adjacency(adj, t) for t in args.thresholds]
-        print('The edge thresholds correspoding to required densities are: {}'.format(edge_t))
-        
-        for et, dt in zip(edge_t, args.thresholds):
-            badj = binarize(np.copy(adj), et)
-            np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.4f}_trl{}_part{}.csv'.format(epoch, dt, args.trial, i), badj, fmt='%d', delimiter=",")
+        ''' Write adjacency to binary. To use as DIPHA input for persistence homology '''
+        save_dipha(SAVE_DIR + 'adj_epc{}_trl{}_part{}.bin'.format(epoch, args.trial, i), 1-adj)
+
+        ''' Compute thresholds. If nominal, use args.thresholds directly, if density, compute nominal correspoding to edge densitites first. For static homology. '''
+        if args.filtration == 'density':
+            edge_t = [build_density_adjacency(adj, t) for t in args.thresholds]
+            print('The edge thresholds correspoding to required densities are: {}'.format(edge_t))
+    
+            for et, dt in zip(edge_t, args.thresholds):
+                badj = binarize(np.copy(adj), et)
+                print('Taking T={}, density={}'.format(et, np.sum(badj)/np.prod(adj.shape)))
+                np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.4f}_trl{}.csv'.format(epoch, dt, args.trial), badj, fmt='%d', delimiter=",")
+        elif args.filtration == 'nominal':
+            print('Size of adjacency matrix is {}'.format(adj.shape))
+            for threshold in args.thresholds:
+                badj = binarize(np.copy(adj), threshold)
+                np.savetxt(SAVE_DIR + 'badj_epc{}_t{:1.4f}_trl{}.csv'.format(epoch, threshold, args.trial), badj, fmt='%d', delimiter=",")
