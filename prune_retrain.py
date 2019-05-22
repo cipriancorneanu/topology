@@ -8,7 +8,7 @@ from passers import Passer
 from savers import save_activations, save_checkpoint, save_losses
 from loaders import *
 from labels import *
-from prune import prune_nodes
+from prune import *
 from models.utils import get_model, get_criterion
 import torch
 import torch.nn as nn
@@ -34,9 +34,19 @@ parser.add_argument('--train_batch_size', default=128, type=int)
 parser.add_argument('--test_batch_size', default=100, type=int)
 parser.add_argument('--input_size', default=32, type=int)
 parser.add_argument('--subset', default=0, type=float)
+parser.add_argument('--random_importance', default=0, type=int)
+parser.add_argument('--epochs_retrain', default=0, type=int)
+parser.add_argument('--structured', default=0, type=int)
+parser.add_argument('--prune_step', default=1, type=int)
+
 args = parser.parse_args()
 
+resume_epoch, eps = get_epc_eps(args.net, args.dataset, args.trial)
+'''node_importance, importance = compute_node_importance(args.net, args.dataset, args.trial)'''
 
+
+
+'''
 node_importance = [396, 344, 320, 386, 397, 321, 300, 385, 149, 304, 257, 390, 365, 225, 325, 183, 335, 322,
   336, 308, 318, 273, 338,  82, 330, 367, 253, 102, 339, 306,  80, 307, 319, 314, 359, 295,
   377,  98, 401, 264, 170,  12, 333, 317, 243, 380, 326, 158, 364,   7, 366,  79, 327, 185,
@@ -60,7 +70,7 @@ node_importance = [396, 344, 320, 386, 397, 321, 300, 385, 149, 304, 257, 390, 3
   218, 222, 176, 175, 224, 146, 144, 277, 103, 256, 258, 112, 110, 109, 259, 105, 104, 203,
   254, 266, 100, 267, 268, 272,  93,  91,  90, 255, 118, 143, 246, 242, 141, 140, 245, 136,
   135, 134, 133, 130, 251, 129, 127, 247, 248, 124, 123, 122, 250,   0]
-
+'''
 
 SAVE_EPOCHS = list(range(11)) + list(range(10, args.epochs+1, args.save_every)) # At what epochs to save train/test stats
 ONAME = args.net + '_' + args.dataset # Meta-name to be used as prefix on all savings
@@ -77,20 +87,22 @@ subsettrainloader = loader(args.dataset+'_train', batch_size=args.train_batch_si
 testloader = loader(args.dataset+'_test', batch_size=args.test_batch_size, sampling=args.binarize_labels)
 criterion  = get_criterion(args.dataset)
 
+
 ''' Build models '''
 print('==> Building model..')
 net = get_model(args.net, args.dataset)
 print(net)
 net = net.to(device)
-   
+
 if device == 'cuda':
     net = torch.nn.DataParallel(net)
     cudnn.benchmark = True
 
 ''' Load checkpoint '''
-print('==> Loading checkpoint for epoch {}...'.format(args.resume_epoch))
+print('==> Loading checkpoint for epoch {}...'.format(resume_epoch))
+print('./checkpoint/'+ args.net + '_' + args.dataset + '/ckpt_trial_' + str(args.trial) + '_epoch_' + str(resume_epoch)+'.t7')
 assert os.path.isdir('checkpoint'), 'Error: no checkpoint directory found!'
-checkpoint = torch.load('./checkpoint/'+ args.net + '_' + args.dataset + '/ckpt_trial_' + str(args.trial) + '_epoch_' + args.resume_epoch+'.t7')
+checkpoint = torch.load('./checkpoint/'+ args.net + '_' + args.dataset + '/ckpt_trial_' + str(args.trial) + '_epoch_' + str(resume_epoch)+'.t7')
 net.load_state_dict(checkpoint['net'])
 
 ''' Optimization '''
@@ -105,30 +117,84 @@ else:
     
 passer_test = Passer(net, testloader, criterion, device)
 
+'''passer_test.run()'''
+
 ''' Define manipulator '''
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
 
-''' Prune and retrain '''
+''' Get node importance '''
+fname = 'node_importance_{}_{}.pkl'.format(args.net, args.dataset)
+if os.path.isfile(fname):
+    print('Load node importance from disk')
+    with open(fname, 'rb') as handle:
+        x = pkl.load(handle)
 
-node_importance = list(range(410))
-import random
-random.shuffle(node_importance)
+    node_importance = x['node_importance']
+    importance = x['importance']
+else:
+    print('Compute node importance and save to disk for future use')
+    functloader = loader(args.dataset+'_test', batch_size=100, subset = list(range(0,1000)))
+    passer_funct = Passer(net, functloader, criterion, device)
 
-for i in range(1, len(node_importance), 2):
-    nodes = node_importance[-i:]
-    print('Print {0:2f}% nodes'.format(100*len(nodes)/len(node_importance)))
+    node_importance, importance = compute_node_importance_adj(net.module, passer_funct, eps, passer_test.get_sample())
 
-    ''' Apply masking on nodes '''
-    net = prune_nodes(net, nodes)
-    passer_test = Passer(net, testloader, criterion, device)
-              
-    ''' Run test '''
-    loss_te, acc_te = passer_test.run()
+    with open(fname, 'wb') as handle:
+        pkl.dump({'node_importance': node_importance, 'importance': importance}, handle, protocol=pkl.HIGHEST_PROTOCOL)
+     
+    
+if args.structured:
+    imp = np.zeros_like(node_importance)
+    for x,y in zip(node_importance, importance):
+        imp[x] = y
 
-    ''' Retrain '''
-    for epoch in range(3):
-        loss_tr, acc_tr = passer_train.run(optimizer, manipulator=manipulator)
+    stats = []
+    cum_nodes = []
+    nodes  = [x for x, _ in  evaluate_group_node_importance(net.module, passer_test.get_sample(), imp, random=args.random_importance)]
+    importance = [y for _, y in  evaluate_group_node_importance(net.module, passer_test.get_sample(), imp, random=args.random_importance)]
         
+    indices = list(range(0, len(nodes), args.prune_step))
+    for indx_beg, indx_end in zip(indices[:-1], indices[1:]):
+        nodes_slice = [item for sublist in nodes[indx_beg:indx_end] for item in sublist]
+        cum_nodes.extend(nodes_slice)
+        perc = 100*len(cum_nodes)/len(node_importance)
+        print('Print {0:2f}% nodes'.format(perc))
+
+        ''' Apply masking on nodes '''        
+        mask = get_mask(net.module, passer_test.get_sample(),  cum_nodes)
+              
+        ''' Run test '''
+        loss_te, acc_te = passer_test.run(mask=mask)
+        
+        ''' Retrain '''
+        for epoch in range(args.epochs_retrain):
+            loss_tr, acc_tr = passer_train.run(optimizer, manipulator=manipulator, mask=mask)
+            loss_te, acc_te = passer_test.run(mask=mask)
+            
+        stats.append({'perc': perc, 'acc_te':acc_te})
+        
+    save_losses(stats, path='./losses/'+ONAME+'/', fname='prune_stats_trial_' +str(args.trial) + '_rand_' + str(args.random_importance) + '_retrain_' + str(args.epochs_retrain) + '_ps_' + str(args.prune_step) + 'structured.pkl')
+else:
+    stats = []
+    for i in range(1, len(node_importance), 4):
+        nodes = node_importance[-i:]
+        perc = 100*len(nodes)/len(node_importance)
+        print('Print {0:2f}% nodes'.format(perc))
+    
+        ''' Apply masking on nodes '''
+        mask = get_mask(net.module, passer_test.get_sample(),  nodes)
+        passer_test = Passer(net, testloader, criterion, device)
+              
+        ''' Run test '''
+        loss_te, acc_te = passer_test.run(mask=mask)
+
+        stats.append({'perc': perc, 'acc_te':acc_te})
+    
+        ''' Retrain '''
+        for epoch in range(args.epochs_retrain):
+            loss_tr, acc_tr = passer_train.run(optimizer, manipulator=manipulator)
+
+    save_losses(stats, path='./losses/'+ONAME+'/', fname='prune_stats_trial_' +str(args.trial) + '_rand_' + str(args.random_importance) + '_retrain_' + str(args.epochs_retrain) + '_ps_' + str(args.prune_step) + '.pkl')
+
 '''
 losses = []
 for epoch in range(start_epoch, start_epoch+args.epochs):

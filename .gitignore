@@ -9,6 +9,7 @@ checkpoint/
 scripts/data/
 scripts/checkpoint/
 scripts/losses/
+scripts/node*pkl
 cpp/
 data/
 densities/
