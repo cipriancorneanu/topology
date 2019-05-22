@@ -16,8 +16,9 @@ cfg = {
 if self.name == 'VGG11': layers = [3, 7, 10, 14, 17, 21, 24, 27, 29]
 if self.name == 'VGG16': layers = [2, 6, 9, 13, 16, 19, 23, 26, 29, 33, 36, 39, 44]
 if self.name == 'VGG16': layers = [19, 23, 26, 29, 33, 36, 39, 44]
-'''
-        
+'''    
+
+
 class VGG(nn.Module):
     def __init__(self, vgg_name, num_classes=10):
         super(VGG, self).__init__()
@@ -25,19 +26,34 @@ class VGG(nn.Module):
         self.features = self._make_layers(cfg[vgg_name])
         self.classifier = nn.Linear(512, num_classes)
         
-    def forward(self, x):
-        out = self.features(x)
-        out = out.view(out.size(0), -1)
+    def forward(self, x, mask=None):
+        layers = [0, 3, 7, 10, 14, 17, 20, 24, 27, 30, 34, 37, 40]
+        if mask is not None:
+            x = self.features[:layers[0]+1](x)
+            for layer_begin, layer_end, m in zip(layers[:-1],layers[1:], mask[1:]):
+                x = self.features[layer_begin+1:layer_end+1](x)
+                x = x*m                
+            x = self.features[layer_end+1:](x)
+        else:
+            x = self.features(x)
+
+        out = x.view(x.size(0), -1)
         out = self.classifier(out)
         return out
 
     def forward_features(self, x):
-        if self.name == 'VGG16': layers = [2, 6, 9, 13, 16, 19, 23, 26, 29, 33, 36, 39, 44]
-        return [self.features[:l+1](x) for l in layers[3::2]] + [self.forward(x)]
+        ''' Forward selected features '''
+        if self.name == 'VGG16': layers = [13, 19, 26, 33, 39]
+        return [self.features[:l+1](x) for l in layers] + [self.forward(x)]
         
-    def forward_all_features(self, x):
-        return [self.features[:l+1](x) for l in range(45)] + [self.forward(x)]
+    def forward_param_features(self, x):
+        ''' Forward features from all convolutional and linear layers '''
+        if self.name == 'VGG16': layers = [0, 3, 7, 10, 14, 17, 20, 24, 27, 30, 34, 37, 40]
+        return [self.features[:l+1](x) for l in layers] + [self.forward(x)]
 
+    def forward_all_features(self, x):
+        return [self.features[:l+1](x) for l in range(45)] + [self.features]
+        
     def _make_layers(self, cfg):
         layers = []
         in_channels = 3
