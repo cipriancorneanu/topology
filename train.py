@@ -80,7 +80,6 @@ passer_test = Passer(net, testloader, criterion, device)
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
 
 ''' Make intial pass before any training '''
-
 loss_te, acc_te = passer_test.run()
 save_checkpoint(checkpoint = {'net':net.state_dict(), 'acc': acc_te, 'epoch': 0}, path='./checkpoint/'+ONAME, fname='ckpt_trial_'+str(args.trial)+'_epoch_0.t7')
 
