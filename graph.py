@@ -137,7 +137,7 @@ def signal_partition(signals, n_part=100, binarize_t=.5):
     node_splits = [[i for i, p in enumerate(partition) if p == val] for val in range(n_part)]
     splits = [[signals[indices, :] for indices in node_splits]]
    
-    return splits
+    return node_splits, splits
 
 
 def signal_splitting(signals, sz_chunk):
@@ -176,7 +176,8 @@ def signal_concat(signals):
 
 
 def adjacency_set_correlation(splits):            
-    set_averages = np.asarray([np.mean(x, axis=0) for layer in splits for x in layer])
+    set_averages = np.asarray([np.mean(x, axis=0) for x in splits])
+    print(set_averages.shape)
     A = adjacency_correlation(set_averages)
     
     return A

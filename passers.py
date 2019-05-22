@@ -21,7 +21,7 @@ class Passer():
         self.loader = loader
         self.repeat = repeat
 
-    def _pass(self, optimizer=None, manipulator=identity):
+    def _pass(self, optimizer=None, manipulator=identity, mask=None):
         ''' Main data passing routing '''
         losses, features, total, correct = [], [], 0, 0
         accuracies = []
@@ -32,30 +32,40 @@ class Passer():
                 inputs, targets = inputs.to(self.device), targets.to(self.device)
             
                 if optimizer: optimizer.zero_grad()
-                outputs = self.network(inputs)
+                if mask:
+                    outputs = self.network(inputs, mask)
+                else:
+                    outputs = self.network(inputs)
 
                 loss = self.criterion(outputs, targets)
                 losses.append(loss.item())
-            
+
                 if optimizer:
                     loss.backward()
                     optimizer.step()
 
+                
                 accuracies.append(get_accuracy(outputs, targets))
                 progress_bar((r-1)*len(self.loader)+batch_idx, r*len(self.loader), 'repeat %d -- Mean Loss: %.3f | Last Loss: %.3f | Acc: %.3f%%'
                              % (r, np.mean(losses), losses[-1], np.mean(accuracies)))
 
         return np.asarray(losses), np.mean(accuracies)
     
+
+    def get_sample(self):
+        iterator = iter(self.loader)
+        inputs, _ = iterator.next()
+        return inputs[0:1,...].to(self.device)
     
-    def run(self, optimizer=None, manipulator=identity):
+        
+    def run(self, optimizer=None, manipulator=identity, mask=None):
         if optimizer:
             self.network.train()
-            return self._pass(optimizer, manipulator=manipulator)
+            return self._pass(optimizer, manipulator=manipulator, mask=mask)
         else:
             self.network.eval()
             with torch.no_grad():
-                return self._pass(manipulator=manipulator)
+                return self._pass(manipulator=manipulator, mask=mask)
 
             
     def get_predictions(self, manipulator=identity):
@@ -72,15 +82,18 @@ class Passer():
         return np.concatenate(gts), np.concatenate(preds)
 
             
-    def get_function(self):
+    def get_function(self, forward='selected'):
         ''' Collect function (features) from the self.network.module.forward_features() routine '''
         features = []
         for batch_idx, (inputs, targets) in enumerate(self.loader):
             inputs, targets = inputs.to(self.device), targets.to(self.device)
             outputs = self.network(inputs)
-                
-            features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_features(inputs)])
 
+            if forward=='selected':
+                features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_features(inputs)])
+            elif forward=='parametric':
+                features.append([f.cpu().data.numpy().astype(np.float16) for f in self.network.module.forward_param_features(inputs)])
+                
             progress_bar(batch_idx, len(self.loader))
 
         return [np.concatenate(list(zip(*features))[i]) for i in range(len(features[0]))]
