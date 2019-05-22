@@ -17,6 +17,7 @@ from passers import Passer
 from savers import save_activations, save_checkpoint, save_losses
 from loaders import *
 from graph import *
+from prune import *
 from labels import load_manipulator
 import pymetis
 import time
@@ -61,10 +62,14 @@ if device == 'cuda':
     cudnn.benchmark = True
 
 ''' Prepare criterion '''
+criterion = nn.CrossEntropyLoss()
+
+'''
 if args.dataset in ['cifar10', 'cifar10_gray', 'vgg_cifar10_adversarial', 'imagenet']:
     criterion = nn.CrossEntropyLoss()
 elif args.dataset in ['mnist', 'mnist_adverarial']:
     criterion = F.nll_loss
+'''
 
 ''' Define label manipulator '''
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
@@ -91,9 +96,14 @@ for epoch in args.epochs:
         splits = signal_partition(activs, n_part=args.split, binarize_t=0.5)
         print('Returning from signal_partition in {} secs'.format(time.time()-start))
     elif args.partition=='dynamic_from_structure':
-        sadj = structure_from_view(net.module, torch.zeros(1,3,32,32).cuda())
+        sadj = structure_from_view(net.module, torch.zeros(1,3,32,32).cuda())        
         splits = signal_partition(sadj, n_part=args.split, binarize_t=0.5)
-
+    elif args.partition=='hardcoded_from_structure':
+        activs = signal_concat(passer.get_function(forward='parametric'))
+        print('activs have shape {}'.format(activs.shape))
+        gn = group_nodes(net.module, passer_test.get_sample())
+        splits = [activs[x,:] for x in gn]        
+        
     '''adj = adjacency_correlation_distribution(splits, metric=js)'''
     adj = adjacency_set_correlation(splits)
     print('The dimension of the adjacency matrix is {}'.format(adj.shape))
