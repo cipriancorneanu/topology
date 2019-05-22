@@ -61,11 +61,13 @@ if device == 'cuda':
     cudnn.benchmark = True
 
 ''' Prepare criterion '''
-if args.dataset in ['cifar10', 'cifar10_gray', 'vgg_cifar10_adversarial', 'imagenet']:
+criterion = nn.CrossEntropyLoss()
+'''
+if args.dataset in ['cifar10', 'cifar10_gray', 'vgg_cifar10_adversarial', 'imagenet', 'fashion_mnist', 'svhn']:
     criterion = nn.CrossEntropyLoss()
 elif args.dataset in ['mnist', 'mnist_adverarial']:
     criterion = F.nll_loss
-
+'''
 ''' Define label manipulator '''
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
 
@@ -91,7 +93,7 @@ start = time.time()
 if args.partition=='hardcoded':
     splits = signal_splitting(activs, args.split)
 elif args.partition=='dynamic':
-    splits = signal_partition(activs, n_part=args.split, binarize_t=args.thresholds[0])
+    node_splits, _ = signal_partition(activs, n_part=args.split, binarize_t=args.thresholds[0])
     print('Returning from signal_partition in {} secs'.format(time.time()-start))
 elif args.partition=='dynamic_from_structure':
     sadj = structure_from_view(net.module, torch.zeros(1,3,32,32).cuda())
@@ -111,13 +113,17 @@ for epoch in args.epochs:
     passer_test.run()
     activs = passer.get_function()
     print('activs have shape {}'.format(signal_concat(activs).shape))
-    
+
+    ''' Split nodes according to computed partition '''
+    signals = signal_concat(activs)
+    splits = [[signals[indices, :] for indices in node_splits]]
+        
     for i, partition in enumerate(splits[0]):
         print(25*'--')
         print('We are computing bettis for partition {}'.format(i))
         print(25*'--')
         
-        subsplits = signal_partition(partition, n_part=args.subsplit, binarize_t=.5)
+        node_subsplits, subsplits = signal_partition(partition, n_part=args.subsplit, binarize_t=.5)
         adj = adjacency_set_correlation(subsplits)
         
         print('The dimension of the adjacency matrix is {}'.format(adj.shape))
