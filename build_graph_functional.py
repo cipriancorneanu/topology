@@ -57,10 +57,7 @@ if device == 'cuda':
     cudnn.benchmark = True
 
 ''' Prepare criterion '''
-if args.dataset in ['cifar10', 'cifar10_gray', 'vgg_cifar10_adversarial', 'imagenet']:
-    criterion = nn.CrossEntropyLoss()
-elif args.dataset in ['mnist', 'mnist_adverarial']:
-    criterion = F.nll_loss
+criterion = nn.CrossEntropyLoss()
 
 ''' Define label manipulator '''
 manipulator = load_manipulator(args.permute_labels, args.binarize_labels)
