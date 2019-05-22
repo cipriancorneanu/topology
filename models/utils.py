@@ -4,6 +4,7 @@ from .resnet import *
 from .alexnet import *
 from .densenet import *
 from .inception import *
+from .conv_x import * 
 
 
 
@@ -15,20 +16,17 @@ num_classes={'mnist':10,
          'imagenet_gray':200,
          'vgg_cifar10_adversarial':10}
 
-'''
-def get_model(name, dataset):
-    if name=='lenet':
-        net = LeNet(num_classes[dataset])
-    if name=='lenet32':
-        net = LeNet(num_classes[name])
-    if name=='lenetext':
-        net = LeNetExt()
-'''
 
 def get_model(name, dataset):
-    if name=='lenet_300_100' and dataset in ['mnist', 'cifar10']:
+    if name == 'conv_2':
+        net = Conv_2(num_classes=10)
+    if name == 'conv_4':
+        net = Conv_4(num_classes=10)
+    if name == 'conv_6':
+        net = Conv_6(num_classes=10)
+    if name=='lenet_300_100' and dataset in ['mnist', 'cifar10_gray28', 'fashion_mnist', 'svhn_gray28']:
         net = LeNet_300_100(num_classes=10)
-    if name=='lenet' and dataset in ['mnist', 'cifar10', 'mnist_adversarial']:
+    if name=='lenet' and dataset in ['mnist', 'cifar10_gray28', 'mnist_adversarial', 'fashion_mnist', 'svhn_gray28']:
         net = LeNet(num_classes=10)
     if name=='lenet' and dataset == 'imagenet':
         net = LeNet(num_classes=200)
@@ -36,7 +34,7 @@ def get_model(name, dataset):
         net = LeNet(num_classes=2)
     if name=='lenet32bin':
         net = LeNet(num_classes=2, input_size=32)
-    if name=='lenet32' and dataset in ['mnist', 'cifar10_gray', 'mnist_adversarial']:
+    if name=='lenet32' and dataset in ['mnist', 'cifar10_gray', 'mnist_adversarial', 'svhn']:
         net = LeNet(num_classes=10, input_size=32)
     if name=='lenet32bin':
         net = LeNet(num_classes=2, input_size=32)
@@ -46,11 +44,11 @@ def get_model(name, dataset):
         net = LeNetExt(n_channels=1, num_classes=10)
     if name=='lenetext' and dataset=='cifar10':
         net = LeNetExt(n_channels=3, num_classes=10)
-    if name=='vgg' and dataset in ['cifar10', 'mnist', 'vgg_cifar10_adversarial']:
+    if name=='vgg' and dataset in ['cifar10', 'mnist_color32', 'fashion_mnist_color32', 'vgg_cifar10_adversarial', 'svhn']:
         net = VGG('VGG16', num_classes=10)
     if name=='vgg' and dataset=='imagenet':
         net = VGG('VGG16', num_classes=200)
-    if name=='resnet' and dataset in ['cifar10', 'mnist']:
+    if name=='resnet' and dataset in ['cifar10', 'mnist_color32', 'fashion_mnist_color32', 'svhn']:
         net = ResNet18(num_classes=10)
     if name=='resnet' and dataset=='imagenet':
         net = ResNet18(num_classes=200)
@@ -71,12 +69,14 @@ def get_model(name, dataset):
 
 
 def get_criterion(dataset):
+    criterion = nn.CrossEntropyLoss()
     ''' Prepare criterion '''
-    if dataset in ['cifar10', 'cifar10_gray', 'imagenet']:
+    '''
+    if dataset in ['cifar10', 'cifar10_gray', 'imagenet', 'fashion_mnist', 'svhn']:
         criterion = nn.CrossEntropyLoss()
     elif dataset in ['mnist', 'mnist_adversarial']:
         criterion = F.nll_loss
-        
+    ''' 
     return criterion 
 
 
